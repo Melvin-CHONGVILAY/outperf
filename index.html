@@ -5,12 +5,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Outperf</title>
 <meta name="description" content="Suis tes heures de travail, lance un chrono et bats ton toi d'hier.">
-<meta name="theme-color" content="#0B0F17">
+<meta name="theme-color" content="#EDF0F5">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Outperf">
 <meta name="format-detection" content="telephone=no">
+<script>
+try {
+  var st = (JSON.parse(localStorage.getItem('outperf.v1') || '{}').settings) || {};
+  var th = st.theme || 'auto';
+  var dark = th === 'dark' || (th === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+  if (dark) {
+    document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]').setAttribute('content', 'black');
+    document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0B0F17');
+  }
+} catch (e) {}
+</script>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
@@ -335,6 +346,11 @@ textarea.input{height:150px;padding:12px 14px;font-size:15px;line-height:1.4;res
 .hdots i.now{box-shadow:inset 0 0 0 2px var(--accent)}
 .pdiv{height:1px;background:var(--line);margin:2px -16px}
 .tscroll{overflow-x:auto;margin:0 -4px}
+.pnav.sm{grid-template-columns:36px 1fr 36px;margin:0 0 8px}
+.pnav.sm .icon-btn{width:36px;height:36px;border-radius:11px}
+.pnav.sm .pnav-title{font-size:15px;font-weight:650}
+.pnav.sm .pnav-sub{font-size:12px}
+.card-sub{font-size:13px;color:var(--muted);padding:0 4px 10px;line-height:1.4}
 .swipe-hint{font-size:12px;color:var(--muted);text-align:center;margin-top:-4px}
 .chart-card .sec-h p{line-height:1.4}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
@@ -731,7 +747,7 @@ function openSheet(title, body, opts = {}) {
   hideTip(); hideToast();
   const bd = h('div', { class: 'backdrop' });
   const close = () => {
-    bd.classList.remove('in'); sh.classList.remove('in');
+    bd.classList.remove('in'); sh.classList.remove('in'); bd.style.pointerEvents = 'none'; sh.style.pointerEvents = 'none';
     setTimeout(() => { bd.remove(); sh.remove(); }, 260);
     sheetStack = sheetStack.filter(x => x !== close);
     if (opts.onClose) opts.onClose();
@@ -941,34 +957,38 @@ function race(host, cur, prev, goalPace, nDays, names) {
   }
   host.replaceChildren(svg);
 }
-/** heatmap: one cell per day, weeks as columns, more weeks shown as history grows */
-function heatmap(host) {
-  const W0 = chartWidth(host), labW = 30, gap = 4;
-  const t = today(), goal = S.settings.goal, f = firstDay();
-  const maxCols = clamp(Math.floor((W0 - labW) / 20), 8, 53);
-  const since = Math.floor(diffDays(monday(f), monday(t)) / 7) + 1;
-  const cols = clamp(since, 8, maxCols);
-  const cell = Math.min(30, Math.floor((W0 - labW) / cols) - gap);
-  const H0 = 20 + 7 * (cell + gap);
+/** calendar heatmap: months as separate blocks, columns Monday to Sunday, weeks read left to right */
+function calendar(host, firstMonth, n) {
+  const W0 = chartWidth(host), t = today(), goal = S.settings.goal, f = firstDay();
+  const perRow = W0 >= 480 ? 4 : 2, gapM = 22, gap = 4;
+  const mw = (W0 - gapM * (perRow - 1)) / perRow;
+  const cell = Math.min(30, Math.floor((mw - 6 * gap) / 7));
+  const gw = 7 * cell + 6 * gap, titleH = 22, headH = 16, gridH = 6 * (cell + gap) - gap, blockH = titleH + headH + gridH;
+  const rows = Math.ceil(n / perRow), rowGap = 22;
+  const H0 = rows * blockH + (rows - 1) * rowGap + 2;
   const svg = sv('svg', { viewBox: `0 0 ${W0} ${H0}`, width: W0, height: H0, class: 'chart' });
-  const startMon = addDays(monday(t), -7 * (cols - 1));
-  DOW_S.forEach((l, i) => (i % 2 === 0) && svg.append(sv('text', { x: 0, y: 20 + i * (cell + gap) + cell * 0.68, class: 'tick' }, l)));
-  let lastMonth = -1;
-  for (let w = 0; w < cols; w++) {
-    const mon = addDays(startMon, 7 * w);
-    const mo = fromKey(addDays(mon, 6)).getMonth();
-    if (mo !== lastMonth) { if (w < cols - 2 || lastMonth === -1) svg.append(sv('text', { x: labW + w * (cell + gap), y: 11, class: 'tick' }, cap(MON_S[mo]).replace('.', ''))); lastMonth = mo; }
-    for (let d = 0; d < 7; d++) {
-      const k = addDays(mon, d);
-      if (k > t) continue;
-      const x = labW + w * (cell + gap), y = 20 + d * (cell + gap);
-      const v = k < f ? null : W(k);
+  const off = (mw - gw) / 2;
+  for (let m = 0; m < n; m++) {
+    const ms = addMonths(firstMonth, m), d0 = fromKey(ms), nd = dim(d0.getFullYear(), d0.getMonth());
+    const bx = (m % perRow) * (mw + gapM) + off, by = Math.floor(m / perRow) * (blockH + rowGap);
+    let hits = 0;
+    for (let i = 0; i < nd; i++) { const k = addDays(ms, i); if (k >= f && k <= t && goal > 0 && W(k) >= goal) hits++; }
+    svg.append(sv('text', { x: bx, y: by + 14, class: 'lbl', style: 'font-size:13px' }, `${cap(MON_L[d0.getMonth()])}${d0.getFullYear() !== fromKey(t).getFullYear() ? ' ' + d0.getFullYear() : ''}`));
+    if (hits) svg.append(sv('text', { x: bx + gw, y: by + 14, 'text-anchor': 'end', class: 'tick' }, `✓ ${hits}`));
+    ['L', 'M', 'M', 'J', 'V', 'S', 'D'].forEach((l, i) => svg.append(sv('text', { x: bx + i * (cell + gap) + cell / 2, y: by + titleH + 10, 'text-anchor': 'middle', class: 'tick', style: 'font-size:10px' }, l)));
+    const startDow = dow(ms);
+    for (let i = 0; i < nd; i++) {
+      const k = addDays(ms, i), pos = startDow + i, r = Math.floor(pos / 7), c = pos % 7;
+      const x = bx + c * (cell + gap), y = by + titleH + headH + r * (cell + gap);
+      const fut = k > t, v = k < f || fut ? null : W(k);
       const lvl = v == null || v <= 0 ? 0 : goal <= 0 ? 5 : v >= goal ? 5 : v >= goal * 0.75 ? 4 : v >= goal * 0.5 ? 3 : v >= goal * 0.25 ? 2 : 1;
-      const r = sv('rect', { x, y, width: cell, height: cell, rx: Math.min(6, cell / 4), class: 'mk', style: `fill:var(--h${lvl})${k === t ? ';stroke:var(--accent);stroke-width:2' : ''}` });
-      svg.append(r);
+      const style = fut ? 'fill:transparent;stroke:var(--line-2);stroke-width:1' : `fill:var(--h${lvl})${k < f ? ';opacity:.45' : ''}${k === t ? ';stroke:var(--accent);stroke-width:2' : ''}`;
+      const rect = sv('rect', { x: x + (fut ? 0.5 : 0), y: y + (fut ? 0.5 : 0), width: cell - (fut ? 1 : 0), height: cell - (fut ? 1 : 0), rx: Math.min(6, cell / 4), class: 'mk', style });
+      svg.append(rect);
+      if (cell >= 18) svg.append(sv('text', { x: x + cell / 2, y: y + cell / 2 + 3.5, 'text-anchor': 'middle', style: `font-size:${cell >= 24 ? 10 : 9}px;pointer-events:none;fill:${lvl >= 4 && !fut ? '#fff' : 'var(--muted)'};opacity:${fut ? .5 : .9}` }, i + 1));
       const hit = sv('rect', { x: x - gap / 2, y: y - gap / 2, width: cell + gap, height: cell + gap, class: 'hit' });
       svg.append(hit);
-      bindTip(hit, r, () => [fmtDate(k), v == null ? [{ label: 'Avant ton premier jour', value: '' }] : [{ label: 'Travail', value: fmtDur(v) }, { label: 'Objectif', value: goal ? pct(v / goal) : '–' }]]);
+      bindTip(hit, rect, () => [fmtDate(k), fut ? [{ label: 'À venir', value: '' }] : k < f ? [{ label: 'Avant ton premier jour', value: '' }] : [{ label: 'Travail', value: fmtDur(v) }, { label: 'Objectif', value: goal ? pct(v / goal) : '–' }]]);
     }
   }
   host.replaceChildren(svg);
@@ -1252,10 +1272,36 @@ function roundDone(res, c, dur, fromBackground) {
 
 /* ---------- stats view */
 const dcl = d => d > 0.5 ? 'up' : d < -0.5 ? 'down' : '';
-function chartCard(title, sub, legend) {
+function navBar(o) {
+  return h('div', { class: 'pnav' + (o.small ? ' sm' : '') },
+    h('button', { class: 'icon-btn', 'aria-label': 'Précédent', disabled: o.canPrev === false ? true : null, onclick: () => { hideTip(); o.onPrev(); } }, icon('chevL')),
+    h('div', { class: 'pnav-t' }, h('div', { class: 'pnav-title' }, o.title),
+      h('div', { class: 'pnav-sub' }, o.sub ? h('span', null, o.sub) : null, o.onToday ? h('button', { class: 'linkbtn', onclick: () => { hideTip(); o.onToday(); } }, 'Revenir à aujourd\'hui') : null)),
+    h('button', { class: 'icon-btn', 'aria-label': 'Suivant', disabled: o.canNext === false ? true : null, onclick: () => { hideTip(); o.onNext(); } }, icon('chev')));
+}
+function bindSwipe(el, onPrev, onNext, canPrev, canNext) {
+  let sx = null, sy = null;
+  el.style.touchAction = 'pan-y';
+  el.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') return; sx = e.clientX; sy = e.clientY; });
+  el.addEventListener('pointerup', e => {
+    if (sx == null) return; const dx = e.clientX - sx, dy = e.clientY - sy; sx = null;
+    if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.4) { hideTip(); if (dx > 0 && canPrev !== false) onPrev(); else if (dx < 0 && canNext !== false) onNext(); }
+  });
+  el.addEventListener('pointercancel', () => { sx = null; });
+}
+function chartCard(title, sub, legend, nav) {
   const host = h('div', { class: 'chart-host' });
-  const card = h('section', { class: 'chart-card' }, h('div', { class: 'sec-h' }, h('h2', null, title), sub ? h('p', null, sub) : null), host, legend ? h('div', { class: 'legend' }, legend) : null);
+  const card = h('section', { class: 'chart-card' }, h('div', { class: 'sec-h' }, h('h2', null, title)), nav ? navBar(Object.assign({ small: true }, nav)) : null, sub ? h('p', { class: 'card-sub' }, sub) : null, host, legend ? h('div', { class: 'legend' }, legend) : null);
+  if (nav) bindSwipe(card, nav.onPrev, nav.onNext, nav.canPrev, nav.canNext);
   return { card, host };
+}
+const addMonths = (ms, n) => { const d = fromKey(ms); return ymd(new Date(d.getFullYear(), d.getMonth() + n, 1, 12)); };
+const monthName = (ms, short) => { const d = fromKey(ms); return short ? MON_S[d.getMonth()] : MON_L[d.getMonth()]; };
+const minNav = () => addMonths(monthStart(today()), -60);
+let raceM = null, regEnd = null, wdM = null, yrEnd = null;
+function relMonth(ms) {
+  const t = fromKey(today()), a = fromKey(ms), n = (t.getFullYear() - a.getFullYear()) * 12 + t.getMonth() - a.getMonth();
+  return n === 0 ? 'Ce mois' : n === 1 ? 'Mois dernier' : `Il y a ${n} mois`;
 }
 const lg = (cls, color, label) => h('span', null, h('i', { class: cls || '', style: color ? (cls === 'ln' ? `border-color:${color}` : `background:${color}`) : '' }), label);
 const pending = [];
@@ -1290,7 +1336,7 @@ function periodNames(P) {
 }
 function shiftPeriod(dir) {
   const P = periodOf(stMode, stAnchor);
-  if (dir < 0 && P.start <= firstDay()) return;
+  if (dir < 0 && P.start <= minNav()) return;
   const a = P.mode === 'day' ? addDays(P.start, dir) : dir < 0 ? P.prevEnd : addDays(P.end, 1);
   if (a > today()) return;
   stAnchor = a; stSlide = dir < 0 ? 'from-left' : 'from-right'; render();
@@ -1301,14 +1347,10 @@ function periodCard() {
   const t = today(), goal = S.settings.goal, f = firstDay();
   const P = periodOf(stMode, stAnchor), C = periodCuts(P), N = periodNames(P);
   const tot = sumW(P.start, C.cut), ptot = sumW(P.prevStart, C.pCut), d = tot - ptot;
-  const noPrev = P.prevEnd < f;
-  const canPrev = P.start > f, canNext = !C.cur;
-  const nav = h('div', { class: 'pnav' },
-    h('button', { class: 'icon-btn', 'aria-label': 'Période précédente', disabled: canPrev ? null : true, onclick: () => shiftPeriod(-1) }, icon('chevL')),
-    h('div', { class: 'pnav-t' }, h('div', { class: 'pnav-title' }, N.title),
-      h('div', { class: 'pnav-sub' }, h('span', null, N.sub), C.cur ? null : h('button', { class: 'linkbtn', onclick: () => { stAnchor = today(); stSlide = 'from-right'; render(); } }, 'Revenir à aujourd\'hui'))),
-    h('button', { class: 'icon-btn', 'aria-label': 'Période suivante', disabled: canNext ? null : true, onclick: () => shiftPeriod(1) }, icon('chev')));
-  const cmpTxt = noPrev ? 'Pas encore de période précédente' : `vs ${N.prev}${C.cur && P.mode !== 'day' ? ' au même jour' : ''} (${fmtDur(ptot)})`;
+  const noPrev = P.prevEnd < f, before = P.end < f;
+  const canPrev = P.start > minNav(), canNext = !C.cur;
+  const nav = navBar({ title: N.title, sub: N.sub, canPrev, canNext, onPrev: () => shiftPeriod(-1), onNext: () => shiftPeriod(1), onToday: C.cur ? null : () => { stAnchor = today(); stSlide = 'from-right'; render(); } });
+  const cmpTxt = before ? `Avant ton premier jour suivi (${fmtDate(f)})` : noPrev ? 'Pas encore de période précédente' : `vs ${N.prev}${C.cur && P.mode !== 'day' ? ' au même jour' : ''} (${fmtDur(ptot)})`;
   const total = h('div', { class: 'ptotal' },
     h('div', null, h('div', { class: 'pbig' }, fmtDur(tot)), h('div', { class: 'small muted' }, C.cur && P.mode !== 'day' ? 'de travail jusqu\'ici' : 'de travail')),
     h('div', { class: 'pdelta ' + (noPrev ? '' : dcl(d)) }, noPrev ? null : h('b', null, (d > 0.5 ? '▲ ' : d < -0.5 ? '▼ ' : '') + fmtDelta(d)), h('span', null, cmpTxt)));
@@ -1380,20 +1422,15 @@ function periodCard() {
     h('div', { class: 'pdiv' }), h('div', { class: 'sec-h' }, h('h2', { style: 'font-size:17px' }, 'Par catégorie'), h('p', null, noPrev ? '' : `écart avec ${N.prev}${C.cur && P.mode !== 'day' ? ' au même jour' : ''}`)), h('div', { class: 'tscroll' }, tb));
   stSlide = '';
   const card = h('section', { class: 'card pcard', 'aria-label': 'Analyse par période' }, nav, pbody, h('p', { class: 'swipe-hint' }, `Glisse vers la droite pour voir ${N.prev}`));
-  // swipe
-  let sx = null, sy = null;
-  card.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') return; sx = e.clientX; sy = e.clientY; });
-  card.addEventListener('pointerup', e => {
-    if (sx == null) return; const dx = e.clientX - sx, dy = e.clientY - sy; sx = null;
-    if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.4) { hideTip(); shiftPeriod(dx > 0 ? -1 : 1); }
-  });
-  card.addEventListener('pointercancel', () => { sx = null; });
+  bindSwipe(card, () => shiftPeriod(-1), () => shiftPeriod(1), canPrev, canNext);
   return { card, P };
 }
-function raceCard(ms) {
-  const t = today(), f = firstDay(), goalH = S.settings.goal / 60;
+function raceCard() {
+  const t = today(), f = firstDay(), goalH = S.settings.goal / 60, curM = monthStart(t);
+  if (!raceM || raceM > curM) raceM = curM;
+  const ms = raceM;
   const d0 = fromKey(ms), nD = dim(d0.getFullYear(), d0.getMonth());
-  const pd = new Date(d0.getFullYear(), d0.getMonth() - 1, 1, 12), pms = ymd(pd), pnD = dim(pd.getFullYear(), pd.getMonth());
+  const pms = addMonths(ms, -1), pd = fromKey(pms), pnD = dim(pd.getFullYear(), pd.getMonth());
   const hasPrev = addDays(pms, pnD - 1) >= f;
   const cur = [], prev = [], pace = [];
   let a = 0, b = 0;
@@ -1403,11 +1440,14 @@ function raceCard(ms) {
     if (i < pnD && hasPrev) { b += W(addDays(pms, i)); prev.push(b / 60); } else prev.push(null);
     pace.push(goalH * (i + 1));
   }
-  const isCur = monthStart(t) === ms;
-  const curTot = a, prevSame = isCur ? sumW(pms, prevMonthSame(t)) : b;
-  const mN = MON_L[d0.getMonth()], pN = MON_L[pd.getMonth()];
-  const sub = !hasPrev ? `${cap(mN)} : ${fmtDur(curTot)}, objectif du mois ${fmtDur(goalH * 60 * nD)}` : `${cap(mN)} : ${fmtDur(curTot)} contre ${fmtDur(prevSame)} ${isCur ? `au même jour en ${pN}` : `en ${pN}`}`;
-  const c = chartCard('La course du mois', sub, [lg('ln', 'var(--accent)', cap(mN)), hasPrev ? lg('ln', 'var(--ghost)', cap(pN)) : null, lg('dash', null, 'Rythme de l\'objectif')]);
+  const isCur = ms === curM;
+  const prevSame = isCur ? sumW(pms, prevMonthSame(t)) : b;
+  const mN = monthName(ms), pN = monthName(pms);
+  const sub = !hasPrev ? `${fmtDur(a)} de travail, objectif du mois ${fmtDur(goalH * 60 * nD)}.` : `${fmtDur(a)} contre ${fmtDur(prevSame)} ${isCur ? `au même jour en ${pN}` : `en ${pN}`}.`;
+  const c = chartCard('La course du mois', sub, [lg('ln', 'var(--accent)', cap(mN)), hasPrev ? lg('ln', 'var(--ghost)', cap(pN)) : null, lg('dash', null, 'Rythme de l\'objectif')], {
+    title: `${cap(mN)} ${d0.getFullYear()}`, sub: relMonth(ms), canPrev: ms > minNav(), canNext: ms < curM,
+    onPrev: () => { raceM = addMonths(ms, -1); render(); }, onNext: () => { raceM = addMonths(ms, 1); render(); },
+  });
   pending.push(() => race(c.host, cur, prev, pace, nD, [cap(mN), cap(pN)]));
   return c.card;
 }
@@ -1417,7 +1457,8 @@ function viewStats() {
   v.append(h('h1', { class: 'page-title' }, 'Stats'));
   if (!hasData()) { v.append(h('div', { class: 'card empty' }, 'Tes stats apparaîtront dès ta première session.', h('button', { class: 'btn sm primary', onclick: () => go('chrono') }, 'Lancer un chrono'))); return v; }
   const t = today(), f = firstDay(), goal = S.settings.goal;
-  if (!stAnchor || stAnchor > t || periodOf(stMode, stAnchor).end < f) stAnchor = t;
+  if (!stAnchor || stAnchor > t) stAnchor = t;
+  const curM = monthStart(t);
   const P0 = periodOf(stMode, stAnchor), C0 = periodCuts(P0);
   v.append(h('div', { class: 'seg', role: 'tablist', 'aria-label': 'Période' }, [['day', 'Jour'], ['week', 'Semaine'], ['month', 'Mois']].map(([k, l]) => h('button', {
     class: stMode === k ? 'on' : '', role: 'tab', 'aria-selected': stMode === k ? 'true' : 'false',
@@ -1425,32 +1466,60 @@ function viewStats() {
   }, l))));
   const { card, P } = periodCard();
   v.append(card);
-  v.append(raceCard(P.mode === 'month' ? P.start : monthStart(t)));
-  // regularity
+  v.append(raceCard());
+  // regularity: 4 months per page, calendar layout
   {
-    const c = chartCard('Régularité', 'Une case par jour. Plus elle est verte, plus tu t\'approches de l\'objectif.', [lg('', 'var(--h0)', 'rien'), lg('', 'var(--h2)', '25 à 49 %'), lg('', 'var(--h4)', '75 à 99 %'), lg('', 'var(--h5)', 'objectif atteint')]);
-    v.append(c.card); pending.push(() => heatmap(c.host));
+    if (!regEnd || regEnd > curM) regEnd = curM;
+    const first = addMonths(regEnd, -3), last = regEnd;
+    let hits = 0, days = 0;
+    for (let k = first < monthStart(f) ? monthStart(f) : first; k <= t && k <= addDays(addMonths(last, 1), -1); k = addDays(k, 1)) {
+      if (k < f) continue; const ok = goal > 0 && W(k) >= goal; if (k < t || ok) { days++; if (ok) hits++; }
+    }
+    const fy = fromKey(first).getFullYear(), ly = fromKey(last).getFullYear();
+    const title = `${cap(monthName(first, true))}${fy !== ly ? ' ' + fy : ''} à ${monthName(last, true)} ${ly}`;
+    const c = chartCard('Régularité', days ? `${hits} jour${hits > 1 ? 's' : ''} à l'objectif sur ${days} suivis. Une case par jour, plus elle est verte, plus tu t'approches de l'objectif.` : 'Une case par jour, plus elle est verte, plus tu t\'approches de l\'objectif.',
+      [lg('', 'var(--h0)', 'rien'), lg('', 'var(--h2)', '25 à 49 %'), lg('', 'var(--h4)', '75 à 99 %'), lg('', 'var(--h5)', 'objectif atteint')], {
+        title, sub: last === curM ? '4 derniers mois' : '4 mois', canPrev: first > minNav(), canNext: last < curM,
+        onPrev: () => { regEnd = addMonths(regEnd, -4); render(); }, onNext: () => { const n = addMonths(regEnd, 4); regEnd = n > curM ? curM : n; render(); },
+        onToday: last === curM ? null : () => { regEnd = curM; render(); },
+      });
+    v.append(c.card); pending.push(() => calendar(c.host, first, 4));
   }
-  // weekday averages
+  // weekday averages, month by month
   {
+    if (!wdM || wdM > curM) wdM = curM;
+    const ms = wdM, me = addDays(addMonths(ms, 1), -1);
     const sums = Array(7).fill(0), cnt = Array(7).fill(0);
-    for (let k = f; k < t; k = addDays(k, 1)) { const d = dow(k); sums[d] += W(k); cnt[d]++; }
-    const avg = sums.map((s, i) => cnt[i] ? s / cnt[i] : null);
+    for (let k = ms; k <= me && k < t; k = addDays(k, 1)) { if (k < f) continue; const d = dow(k); sums[d] += W(k); cnt[d]++; }
+    const avg = sums.map((x, i) => cnt[i] ? x / cnt[i] : null);
     let minI = -1; avg.forEach((a, i) => { if (a != null && (minI < 0 || a < avg[minI])) minI = i; });
     const data = DOW_S.map((l, i) => ({ label: l, v: (avg[i] || 0) / 60, fill: i === minI ? 'var(--ghost)' : 'var(--accent)', tip: [cap(DOW_L[i]), [{ label: 'Moyenne', value: avg[i] == null ? '–' : fmtDur(avg[i]) }, { label: 'Jours comptés', value: String(cnt[i]) }]] }));
-    const c = chartCard('Tes jours de la semaine', minI >= 0 ? `Moyenne par jour depuis le début. Ton jour le plus faible : le ${DOW_L[minI]}.` : 'Moyenne par jour, dès que tu auras une journée complète.', [lg('', 'var(--accent)', 'Moyenne'), minI >= 0 ? lg('', 'var(--ghost)', 'Jour le plus faible') : null, lg('dash', null, `Objectif ${fmtDur(goal)}`)]);
+    const c = chartCard('Tes jours de la semaine', minI >= 0 ? `Moyenne par jour de la semaine sur le mois. Ton jour le plus faible : le ${DOW_L[minI]}.` : 'Pas encore de journée complète sur ce mois.',
+      [lg('', 'var(--accent)', 'Moyenne'), minI >= 0 ? lg('', 'var(--ghost)', 'Jour le plus faible') : null, lg('dash', null, `Objectif ${fmtDur(goal)}`)], {
+        title: `${cap(monthName(ms))} ${fromKey(ms).getFullYear()}`, sub: relMonth(ms), canPrev: ms > minNav(), canNext: ms < curM,
+        onPrev: () => { wdM = addMonths(ms, -1); render(); }, onNext: () => { wdM = addMonths(ms, 1); render(); },
+        onToday: ms === curM ? null : () => { wdM = curM; render(); },
+      });
     v.append(c.card); pending.push(() => columns(c.host, data, { goal: goal / 60, labels: true, labelFmt: d => d.v ? hLabel(d.v) : '' }));
   }
-  // 12 months
+  // 12 months, page by page
   {
-    const d0 = fromKey(t), data = [];
-    for (let i = 11; i >= 0; i--) {
-      const dt = new Date(d0.getFullYear(), d0.getMonth() - i, 1, 12), a = ymd(dt), b0 = ymd(new Date(dt.getFullYear(), dt.getMonth() + 1, 0, 12)), b = b0 > t ? t : b0;
-      const tot = b < f ? 0 : sumW(a < f ? f : a, b);
-      data.push({ label: cap(MON_S[dt.getMonth()]).replace('.', '').slice(0, 4), v: tot / 60, strong: i === 0, fill: 'var(--accent)', opacity: i === 0 ? 0.6 : null,
+    if (!yrEnd || yrEnd > curM) yrEnd = curM;
+    const data = [], firstM = addMonths(yrEnd, -11);
+    let tot12 = 0;
+    for (let i = 0; i < 12; i++) {
+      const a = addMonths(firstM, i), b0 = addDays(addMonths(a, 1), -1), b = b0 > t ? t : b0;
+      const tot = b < f || a > t ? 0 : sumW(a < f ? f : a, b);
+      tot12 += tot;
+      data.push({ label: cap(monthName(a, true)).replace('.', '').slice(0, 4), v: tot / 60, strong: a === curM, fill: 'var(--accent)', opacity: a === curM ? 0.6 : null,
         onPick: () => { stMode = 'month'; stAnchor = a; stSlide = ''; render(); app().scrollTop = 0; } });
     }
-    const c = chartCard('12 derniers mois', 'Heures de travail par mois. Touche un mois pour l\'analyser en détail.');
+    const fy = fromKey(firstM).getFullYear(), ly = fromKey(yrEnd).getFullYear();
+    const c = chartCard('12 mois', `${fmtDur(tot12)} sur la période. Touche un mois pour l'analyser en détail.`, null, {
+      title: `${cap(monthName(firstM, true))} ${fy} à ${monthName(yrEnd, true)} ${ly}`, sub: yrEnd === curM ? '12 derniers mois' : '', canPrev: firstM > minNav(), canNext: yrEnd < curM,
+      onPrev: () => { yrEnd = addMonths(yrEnd, -12); render(); }, onNext: () => { const n = addMonths(yrEnd, 12); yrEnd = n > curM ? curM : n; render(); },
+      onToday: yrEnd === curM ? null : () => { yrEnd = curM; render(); },
+    });
     v.append(c.card); pending.push(() => columns(c.host, data, { labels: true, labelFmt: d => d.v ? fmtNum(d.v, 0) : '', labelAt: i => i % 2 === 1 }));
   }
   return v;
@@ -1820,7 +1889,7 @@ function markSVG(size) {
 
 /* ================= shell ================= */
 const TABS = [['today', "Aujourd'hui"], ['chrono', 'Chrono'], ['stats', 'Stats'], ['journal', 'Journal'], ['settings', 'Réglages']];
-function go(tab) { if (tab === 'stats' && TAB !== 'stats') { stAnchor = null; stSlide = ''; } TAB = tab; render(); app().scrollTop = 0; }
+function go(tab) { if (tab === 'stats' && TAB !== 'stats') { stAnchor = null; stSlide = ''; raceM = regEnd = wdM = yrEnd = null; } TAB = tab; render(); app().scrollTop = 0; }
 function render() {
   computeLive();
   pending.length = 0;
