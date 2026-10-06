@@ -60,13 +60,16 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
   --tabbar:rgba(21,26,37,.84);
 }
 
-body{font-family:var(--font);background:var(--bg);color:var(--ink);font-size:16px;line-height:1.38;-webkit-font-smoothing:antialiased;overscroll-behavior-y:none;min-height:100dvh}
+html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+body{font-family:var(--font);background:var(--bg);color:var(--ink);font-size:16px;line-height:1.38;-webkit-font-smoothing:antialiased;position:fixed;inset:0;width:100%}
+.shell{height:100%;display:flex;flex-direction:column}
 button,input,select,textarea{font:inherit;color:inherit}
 button{background:none;border:0;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;-webkit-user-select:none;user-select:none}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px}
 .num{font-family:var(--num)}
-.statusbar{position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top);background:var(--status-bg);z-index:60}
-.app{max-width:560px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 14px) 16px calc(env(safe-area-inset-bottom) + 104px)}
+.topsafe{flex:none;height:env(safe-area-inset-top);background:var(--bg)}
+.app{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain}
+.app-in{max-width:560px;margin:0 auto;padding:14px 16px 28px}
 .view{display:flex;flex-direction:column;gap:22px}
 
 /* ---------- headings */
@@ -177,7 +180,7 @@ textarea.input{height:150px;padding:12px 14px;font-size:15px;line-height:1.4;res
 .swatch.on::after{content:"";position:absolute;inset:-4px;border-radius:50%;box-shadow:0 0 0 2.5px var(--ink)}
 
 /* ---------- tabbar */
-.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:40;background:var(--panel);background:var(--tabbar);-webkit-backdrop-filter:blur(22px) saturate(1.6);backdrop-filter:blur(22px) saturate(1.6);border-top:1px solid var(--line);padding:6px 6px calc(env(safe-area-inset-bottom) + 4px)}
+.tabbar{flex:none;position:relative;z-index:40;background:var(--panel);background:var(--tabbar);-webkit-backdrop-filter:blur(22px) saturate(1.6);backdrop-filter:blur(22px) saturate(1.6);border-top:1px solid var(--line);padding:6px 6px calc(env(safe-area-inset-bottom) + 4px)}
 .tabbar-in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr)}
 .tab{display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 0 2px;color:var(--muted);font-size:10.5px;font-weight:600;position:relative}
 .tab svg{width:25px;height:25px}
@@ -185,7 +188,7 @@ textarea.input{height:150px;padding:12px 14px;font-size:15px;line-height:1.4;res
 .tab .pulse{position:absolute;top:2px;left:calc(50% + 10px);width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--panel)}
 
 /* ---------- running banner */
-.runbar{position:sticky;top:calc(env(safe-area-inset-top) + 6px);z-index:30;display:flex;align-items:center;gap:10px;background:var(--ink);color:var(--bg);border-radius:16px;padding:10px 14px;margin-bottom:14px;width:100%;text-align:left}
+.runbar{position:sticky;top:6px;z-index:30;display:flex;align-items:center;gap:10px;background:var(--ink);color:var(--bg);border-radius:16px;padding:10px 14px;margin-bottom:14px;width:100%;text-align:left}
 .runbar .dot{box-shadow:0 0 0 2px var(--ink)}
 .runbar .rb-t{flex:1;font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .runbar .rb-c{font-family:var(--num);font-size:17px;font-weight:700}
@@ -224,8 +227,9 @@ textarea.input{height:150px;padding:12px 14px;font-size:15px;line-height:1.4;res
 .chart-card .sec-h{padding:0 4px 10px;flex-direction:column;align-items:flex-start;gap:2px}
 .chart-card .sec-h h2{font-size:17px}
 .chart{display:block;overflow:visible;touch-action:pan-y}
-.chart text{font-family:var(--font);font-size:10.5px;fill:var(--muted)}
-.chart .lbl{fill:var(--ink-2);font-weight:600}
+.chart text{font-family:var(--font);font-size:11px;fill:var(--muted);font-variant-numeric:tabular-nums}
+.chart .tick{fill:var(--muted)}
+.chart .lbl{fill:var(--ink);font-weight:650}
 .chart .grid{stroke:var(--line);stroke-width:1}
 .chart .base{stroke:var(--line-2);stroke-width:1}
 .chart .goal{stroke:var(--muted);stroke-width:1.25;stroke-dasharray:4 4}
@@ -304,15 +308,46 @@ textarea.input{height:150px;padding:12px 14px;font-size:15px;line-height:1.4;res
 .warnline{display:flex;gap:10px;align-items:center;background:var(--accent-wash);border-radius:14px;padding:10px 14px;font-size:14px;color:var(--ink-2);width:100%;text-align:left}
 .warnline b{color:var(--ink)}
 
+.pcard{display:flex;flex-direction:column;gap:16px;touch-action:pan-y;overflow:hidden}
+.pnav{display:grid;grid-template-columns:40px 1fr 40px;align-items:center;gap:8px}
+.pnav-t{text-align:center;min-width:0}
+.pnav-title{font-size:18px;font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+.pnav-sub{font-size:13px;color:var(--muted);display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap;margin-top:2px}
+.linkbtn{color:var(--tint);font-weight:650;font-size:13px}
+.icon-btn[disabled]{opacity:.28;pointer-events:none}
+.pbody{display:flex;flex-direction:column;gap:14px}
+.pbody.from-left{animation:fromL .24s ease}
+.pbody.from-right{animation:fromR .24s ease}
+@keyframes fromL{from{opacity:0;transform:translateX(-28px)}}
+@keyframes fromR{from{opacity:0;transform:translateX(28px)}}
+.ptotal{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.pbig{font-family:var(--num);font-size:46px;font-weight:750;letter-spacing:-.03em;line-height:1}
+.pdelta{text-align:right;font-size:12.5px;color:var(--muted);display:flex;flex-direction:column;align-items:flex-end;gap:2px;max-width:55%}
+.pdelta b{font-size:17px;font-family:var(--num);color:var(--ink-2)}
+.pdelta.up b{color:var(--good-ink)}.pdelta.down b{color:var(--bad-ink)}
+.hits{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--ink-2);flex-wrap:wrap}
+.hits b{color:var(--ink)}
+.hits.v-good{color:var(--good-ink);font-weight:600}.hits.v-bad{color:var(--bad-ink);font-weight:600}
+.hdots{display:inline-flex;gap:5px}
+.hdots i{width:13px;height:13px;border-radius:4px;background:transparent;box-shadow:inset 0 0 0 1.5px var(--line-2)}
+.hdots i.hit{background:var(--good);box-shadow:none}
+.hdots i.miss{background:var(--line-2);box-shadow:none}
+.hdots i.now{box-shadow:inset 0 0 0 2px var(--accent)}
+.pdiv{height:1px;background:var(--line);margin:2px -16px}
+.tscroll{overflow-x:auto;margin:0 -4px}
+.swipe-hint{font-size:12px;color:var(--muted);text-align:center;margin-top:-4px}
+.chart-card .sec-h p{line-height:1.4}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 @media (min-width:600px){.kpis{grid-template-columns:repeat(4,1fr)}}
 
 </style>
 </head>
 <body>
-<div class="statusbar" aria-hidden="true"></div>
+<div class="shell">
+<div class="topsafe" aria-hidden="true"></div>
 <main id="app" class="app"></main>
 <nav id="tabs" class="tabbar" aria-label="Navigation"></nav>
+</div>
 <noscript><p style="padding:24px">Active JavaScript pour utiliser Outperf.</p></noscript>
 <script>
 'use strict';
@@ -371,6 +406,7 @@ const ICONS = {
   up: '<path d="M6 14l6-6 6 6"/>',
   down: '<path d="M6 10l6 6 6-6"/>',
   chev: '<path d="M9 6l6 6-6 6"/>',
+  chevL: '<path d="M15 6l-6 6 6 6"/>',
   edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
   timer: '<circle cx="12" cy="13" r="7.5"/><path d="M12 13l3-3M10 2.5h4"/>',
   hand: '<path d="M5 12h14M12 5v14"/>',
@@ -761,23 +797,31 @@ function bindTip(hit, mark, getTip) {
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && sheetStack.length) sheetStack[sheetStack.length - 1](); });
 document.addEventListener('pointerdown', e => { if (!e.target.closest || !e.target.closest('.hit')) hideTip(); }, true);
-addEventListener('scroll', hideTip, { passive: true });
+document.addEventListener('scroll', hideTip, { passive: true, capture: true });
 
 /* ================= charts ================= */
-function niceStep(max) {
-  const raw = max / 4; const p = Math.pow(10, Math.floor(Math.log10(raw)));
-  const n = raw / p; return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * p;
+function niceScale(maxV) {
+  if (!(maxV > 0)) maxV = 1;
+  const p = Math.pow(10, Math.floor(Math.log10(maxV / 4)));
+  let best = null;
+  for (const m of [1, 2, 2.5, 5, 10, 20, 25, 50]) {
+    if ((m === 2.5 || m === 25) && p < 10) continue;
+    const step = m * p, n = Math.ceil(maxV / step - 1e-9);
+    if (n < 2 || n > 6) continue;
+    const top = n * step;
+    if (!best || top < best.top - 1e-9 || (Math.abs(top - best.top) < 1e-9 && Math.abs(n - 4) < Math.abs(best.n - 4))) best = { step, top, n };
+  }
+  return best || { step: maxV / 4, top: maxV, n: 4 };
 }
 function frame(width, height, m, maxV, fmtTick) {
   const svg = sv('svg', { viewBox: `0 0 ${width} ${height}`, width, height, class: 'chart', role: 'img' });
   const box = { x0: m.l, x1: width - m.r, y0: height - m.b, y1: m.t };
-  const step = niceStep(Math.max(maxV, 1e-6) || 1);
-  const top = Math.max(step, Math.ceil((maxV || step) / step - 1e-9) * step);
+  const { step, top, n } = niceScale(maxV);
   const g = sv('g');
-  for (let v = 0; v <= top + 1e-9; v += step) {
-    const y = box.y0 - (v / top) * (box.y0 - box.y1);
-    g.append(sv('line', { x1: box.x0, x2: box.x1, y1: y, y2: y, class: v === 0 ? 'base' : 'grid' }));
-    g.append(sv('text', { x: box.x0 - 6, y: y + 3.5, 'text-anchor': 'end' }, fmtTick ? fmtTick(v) : fmtNum(v, v % 1 ? 1 : 0)));
+  for (let i = 0; i <= n; i++) {
+    const v = i * step, y = box.y0 - (v / top) * (box.y0 - box.y1);
+    g.append(sv('line', { x1: box.x0, x2: box.x1, y1: y, y2: y, class: i === 0 ? 'base' : 'grid' }));
+    g.append(sv('text', { x: box.x0 - 7, y: y + 4, 'text-anchor': 'end', class: 'tick' }, fmtTick ? fmtTick(v) : fmtNum(v, Math.abs(step - Math.round(step)) > 1e-9 ? 1 : 0)));
   }
   svg.append(g);
   box.y = v => box.y0 - (v / top) * (box.y0 - box.y1);
@@ -795,142 +839,136 @@ function rowPath(x0, y, len, hh, r = 4) {
   return `M${x0},${y}H${x - r}Q${x},${y} ${x},${y + r}V${y + hh - r}Q${x},${y + hh} ${x - r},${y + hh}H${x0}Z`;
 }
 function chartWidth(el) { return Math.max(260, Math.floor((el && el.clientWidth) || Math.min(innerWidth, 560) - 58)); }
+const hLabel = v => v >= 10 ? fmtNum(v, 0) : fmtNum(v, 1);
 
-/** columns: data [{label, v (hours), fill, opacity, tip:[title, rows]}] */
+/** columns: data [{label, v (hours), fill, opacity, strong, tip:[title, rows], onPick}] */
 function columns(host, data, o = {}) {
-  const W0 = chartWidth(host), H0 = o.height || 190;
-  const maxV = Math.max(o.goal || 0, ...data.map(d => d.v), ...(o.line || []).filter(v => v != null), 0.5);
-  const { svg, box } = frame(W0, H0, { l: 30, r: 6, t: o.labels ? 18 : 10, b: 24 }, maxV * (o.labels ? 1.08 : 1), o.tick);
-  const n = data.length, band = (box.x1 - box.x0) / n, bw = Math.min(24, Math.max(3, band - 2));
-  const every = o.every || Math.ceil(n / Math.floor((box.x1 - box.x0) / 34));
-  const gGoal = sv('g'), gMarks = sv('g'), gLine = sv('g'), gLab = sv('g'), gHit = sv('g');
-  svg.append(gGoal, gMarks, gLine, gLab, gHit);
+  const W0 = chartWidth(host), H0 = o.height || 200;
+  const maxV = Math.max(o.goal || 0, ...data.map(d => d.v), o.min || 0.5);
+  const { svg, box } = frame(W0, H0, { l: 30, r: 4, t: o.labels ? 20 : 10, b: 24 }, maxV * (o.labels ? 1.1 : 1.02), o.tick);
+  const n = data.length, band = (box.x1 - box.x0) / n, bw = Math.min(o.maxBar || 26, Math.max(3, band - (n > 14 ? 2 : 8)));
+  const gGoal = sv('g'), gMarks = sv('g'), gLab = sv('g'), gHit = sv('g');
+  svg.append(gGoal, gMarks, gLab, gHit);
   data.forEach((d, i) => {
     const x = box.x0 + i * band + (band - bw) / 2;
-    const hh = box.y0 - box.y(d.v);
-    const p = colPath(x, box.y0, bw, hh);
+    const p = colPath(x, box.y0, bw, box.y0 - box.y(d.v), bw < 8 ? 2 : 4);
     const mark = p ? sv('path', { d: p, class: 'mk', style: `fill:${d.fill};${d.opacity != null ? 'opacity:' + d.opacity : ''}` }) : sv('g');
     gMarks.append(mark);
-    if (o.labels && d.v > 0) gLab.append(sv('text', { x: x + bw / 2, y: box.y(d.v) - 5, 'text-anchor': 'middle', class: 'lbl' }, o.labelFmt ? o.labelFmt(d) : fmtNum(d.v, d.v < 10 ? 1 : 0)));
-    if ((n - 1 - i) % every === 0) gLab.append(sv('text', { x: x + bw / 2, y: box.y0 + 16, 'text-anchor': 'middle' }, d.label));
+    if (o.labels && d.v > 0) gLab.append(sv('text', { x: x + bw / 2, y: box.y(d.v) - 6, 'text-anchor': 'middle', class: 'lbl' }, o.labelFmt ? o.labelFmt(d) : hLabel(d.v)));
+    const showX = o.labelAt ? o.labelAt(i) : true;
+    if (showX) gLab.append(sv('text', { x: x + bw / 2, y: box.y0 + 17, 'text-anchor': 'middle', class: d.strong ? 'lbl' : 'tick' }, d.label));
     const hit = sv('rect', { x: box.x0 + i * band, y: box.y1, width: band, height: box.y0 - box.y1 + 22, class: 'hit', 'aria-label': d.tip ? d.tip[0] : d.label });
     gHit.append(hit);
-    if (d.tip) bindTip(hit, mark, () => d.tip);
+    if (d.onPick) { hit.setAttribute('tabindex', '0'); hit.setAttribute('role', 'button'); hit.addEventListener('click', e => { e.stopPropagation(); d.onPick(); }); hit.addEventListener('keydown', e => { if (e.key === 'Enter') d.onPick(); }); }
+    else if (d.tip) bindTip(hit, mark, () => d.tip);
   });
-  if (o.goal) {
-    const y = box.y(o.goal);
-    gGoal.append(sv('line', { x1: box.x0, x2: box.x1, y1: y, y2: y, class: 'goal' }));
-  }
-  if (o.line) {
-    let dp = '', started = false;
-    o.line.forEach((v, i) => {
-      if (v == null) { started = false; return; }
-      const x = box.x0 + i * band + band / 2, y = box.y(v);
-      dp += (started ? 'L' : 'M') + x.toFixed(1) + ',' + y.toFixed(1); started = true;
-    });
-    gLine.append(sv('path', { d: dp, fill: 'none', style: `stroke:${o.lineColor || 'var(--ink)'}`, 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
-  }
+  if (o.goal) { const y = box.y(o.goal); gGoal.append(sv('line', { x1: box.x0, x2: box.x1, y1: y, y2: y, class: 'goal' })); }
   host.replaceChildren(svg);
 }
-/** stacked columns: days [{label, parts:[{c, v}], tip}] */
-function stacked(host, days, o = {}) {
-  const W0 = chartWidth(host), H0 = o.height || 200;
-  const maxV = Math.max(0.5, ...days.map(d => d.parts.reduce((s, p) => s + p.v, 0)));
-  const { svg, box } = frame(W0, H0, { l: 30, r: 6, t: 10, b: 24 }, maxV);
-  const n = days.length, band = (box.x1 - box.x0) / n, bw = Math.min(24, band - 4);
-  const every = Math.ceil(n / Math.floor((box.x1 - box.x0) / 40));
-  days.forEach((d, i) => {
-    const x = box.x0 + i * band + (band - bw) / 2;
-    let acc = 0; const g = sv('g', { class: 'mk' });
-    const parts = d.parts.filter(p => p.v > 0);
-    parts.forEach((p, j) => {
-      const yb = box.y(acc), yt = box.y(acc + p.v);
-      const top = j === parts.length - 1;
-      const hh = Math.max(0, yb - yt - (j > 0 ? 2 : 0));
-      const base = j > 0 ? yb - 2 : yb;
-      if (hh > 0.3) g.append(top ? sv('path', { d: colPath(x, base, bw, hh), style: `fill:${p.fill}` }) : sv('rect', { x, y: base - hh, width: bw, height: hh, style: `fill:${p.fill}` }));
-      acc += p.v;
-    });
-    svg.append(g);
-    if ((n - 1 - i) % every === 0) svg.append(sv('text', { x: x + bw / 2, y: box.y0 + 16, 'text-anchor': 'middle' }, d.label));
-    const hit = sv('rect', { x: box.x0 + i * band, y: box.y1, width: band, height: box.y0 - box.y1 + 22, class: 'hit' });
-    svg.append(hit); bindTip(hit, g, () => d.tip);
+/** grouped columns: current (solid) next to previous period (ghost outline) */
+function grouped(host, groups, o = {}) {
+  const W0 = chartWidth(host), H0 = o.height || 220;
+  const maxV = Math.max(o.goal || 0, ...groups.map(g => Math.max(g.cur || 0, g.prev || 0)), 0.5) * 1.12;
+  const { svg, box } = frame(W0, H0, { l: 30, r: 4, t: 18, b: 36 }, maxV);
+  const n = groups.length, band = (box.x1 - box.x0) / n;
+  const bw = Math.min(18, Math.max(6, (band - 12) / 2));
+  const gGoal = sv('g'), gMarks = sv('g'), gLab = sv('g'), gHit = sv('g');
+  svg.append(gGoal, gMarks, gLab, gHit);
+  groups.forEach((g, i) => {
+    const cx = box.x0 + i * band + band / 2;
+    const mk = sv('g', { class: 'mk' });
+    if (g.prev > 0) mk.append(sv('path', { d: colPath(cx - bw - 1.25, box.y0, bw - 1.5, box.y0 - box.y(g.prev) - 0.75), style: 'fill:var(--ghost-wash);stroke:var(--ghost);stroke-width:1.5' }));
+    if (g.cur > 0) {
+      mk.append(sv('path', { d: colPath(cx + 1.5, box.y0, bw, box.y0 - box.y(g.cur)), style: `fill:${g.fill}` }));
+      gLab.append(sv('text', { x: cx + 1.5 + bw / 2, y: box.y(g.cur) - 6, 'text-anchor': 'middle', class: 'lbl' }, hLabel(g.cur)));
+    }
+    gMarks.append(mk);
+    gLab.append(sv('text', { x: cx, y: box.y0 + 16, 'text-anchor': 'middle', class: g.strong ? 'lbl' : 'tick' }, g.l1));
+    gLab.append(sv('text', { x: cx, y: box.y0 + 30, 'text-anchor': 'middle', class: g.strong ? 'lbl' : 'tick' }, g.l2));
+    const hit = sv('rect', { x: box.x0 + i * band, y: box.y1, width: band, height: box.y0 - box.y1 + 34, class: 'hit', 'aria-label': g.tip[0] });
+    gHit.append(hit); bindTip(hit, mk, () => g.tip);
   });
+  if (o.goal) { const y = box.y(o.goal); gGoal.append(sv('line', { x1: box.x0, x2: box.x1, y1: y, y2: y, class: 'goal' })); }
   host.replaceChildren(svg);
 }
-/** horizontal bars: rows [{label, v, fill, tip}] */
+/** horizontal bars: rows [{label, v, pv, fill, tip}] with optional ghost row for the previous period */
 function hbars(host, rows) {
-  const W0 = chartWidth(host), rowH = 30, H0 = rows.length * rowH + 4;
-  const labW = Math.min(132, Math.round(W0 * 0.36));
+  const W0 = chartWidth(host), ghost = rows.some(r => r.pv != null), rowH = ghost ? 42 : 32, H0 = rows.length * rowH + 2;
+  const labW = Math.min(124, Math.round(W0 * 0.34));
   const svg = sv('svg', { viewBox: `0 0 ${W0} ${H0}`, width: W0, height: H0, class: 'chart' });
-  const maxV = Math.max(0.5, ...rows.map(r => r.v));
-  const plot = W0 - labW - 54;
+  const maxV = Math.max(0.25, ...rows.map(r => Math.max(r.v, r.pv || 0)));
+  const plot = W0 - labW - 62;
   rows.forEach((r, i) => {
     const y = 2 + i * rowH, len = (r.v / maxV) * plot;
-    svg.append(sv('text', { x: 0, y: y + 17, class: 'lbl', style: 'font-weight:500' }, r.label.length > 18 ? r.label.slice(0, 17) + '…' : r.label));
-    const mark = sv('path', { d: rowPath(labW, y + 6, len, 16) || `M${labW},${y + 6}h1v16h-1Z`, class: 'mk', style: `fill:${r.fill}` });
-    svg.append(mark);
-    svg.append(sv('text', { x: labW + len + 6, y: y + 18, class: 'lbl' }, fmtH(r.v * 60)));
+    svg.append(sv('text', { x: 0, y: y + 17, class: 'lbl', style: 'font-weight:500' }, r.label.length > 17 ? r.label.slice(0, 16) + '…' : r.label));
+    const mk = sv('g', { class: 'mk' });
+    mk.append(sv('path', { d: rowPath(labW, y + 5, len, 16) || `M${labW},${y + 5}h2v16h-2Z`, style: `fill:${r.fill}` }));
+    if (ghost && r.pv > 0) mk.append(sv('path', { d: rowPath(labW + 0.75, y + 25, (r.pv / maxV) * plot - 0.75, 8, 3), style: 'fill:var(--ghost-wash);stroke:var(--ghost);stroke-width:1.25' }));
+    svg.append(mk);
+    svg.append(sv('text', { x: labW + len + 7, y: y + 17, class: 'lbl' }, fmtDur(r.v * 60)));
     const hit = sv('rect', { x: 0, y, width: W0, height: rowH, class: 'hit' });
-    svg.append(hit); bindTip(hit, mark, () => r.tip);
+    svg.append(hit); bindTip(hit, mk, () => r.tip);
   });
   host.replaceChildren(svg);
 }
-/** month race */
-function race(host, cur, prev, goalPace, nDays, todayIdx) {
-  const W0 = chartWidth(host), H0 = 200;
-  const maxV = Math.max(0.5, ...cur.filter(v => v != null), ...prev.filter(v => v != null), goalPace[nDays - 1] || 0);
+/** month race: cumulative hours, this month vs previous month vs objective pace */
+function race(host, cur, prev, goalPace, nDays, names) {
+  const W0 = chartWidth(host), H0 = 210;
+  const lastCur = cur.reduce((a, v, i) => v != null ? i : a, -1);
+  const maxV = Math.max(0.5, ...cur.filter(v => v != null), ...prev.filter(v => v != null), goalPace[nDays - 1] || 0) * 1.04;
   const { svg, box } = frame(W0, H0, { l: 34, r: 8, t: 12, b: 24 }, maxV, v => fmtNum(v, 0));
   const X = i => box.x0 + (i / (nDays - 1)) * (box.x1 - box.x0);
   const path = arr => { let d = ''; arr.forEach((v, i) => { if (v == null) return; d += (d ? 'L' : 'M') + X(i).toFixed(1) + ',' + box.y(v).toFixed(1); }); return d; };
   svg.append(sv('path', { d: path(goalPace), fill: 'none', class: 'goal' }));
-  svg.append(sv('path', { d: path(prev), fill: 'none', style: 'stroke:var(--ghost)', 'stroke-width': 2, 'stroke-linejoin': 'round' }));
+  const pp = path(prev);
+  if (pp) svg.append(sv('path', { d: pp, fill: 'none', style: 'stroke:var(--ghost)', 'stroke-width': 2, 'stroke-linejoin': 'round' }));
   const cp = path(cur);
-  if (cp) {
-    const lastI = cur.reduce((a, v, i) => v != null ? i : a, 0);
-    svg.append(sv('path', { d: cp + `L${X(lastI).toFixed(1)},${box.y0}L${X(0).toFixed(1)},${box.y0}Z`, style: 'fill:var(--accent);opacity:.12' }));
+  if (cp && lastCur >= 0) {
+    svg.append(sv('path', { d: cp + `L${X(lastCur).toFixed(1)},${box.y0}L${X(0).toFixed(1)},${box.y0}Z`, style: 'fill:var(--accent);opacity:.12' }));
     svg.append(sv('path', { d: cp, fill: 'none', style: 'stroke:var(--accent)', 'stroke-width': 2.5, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
-    svg.append(sv('circle', { cx: X(lastI), cy: box.y(cur[lastI]), r: 4.5, style: 'fill:var(--accent);stroke:var(--panel)', 'stroke-width': 2 }));
+    svg.append(sv('circle', { cx: X(lastCur), cy: box.y(cur[lastCur]), r: 4.5, style: 'fill:var(--accent);stroke:var(--panel)', 'stroke-width': 2 }));
   }
-  [1, 8, 15, 22, 29].filter(d => d <= nDays).forEach(d => svg.append(sv('text', { x: X(d - 1), y: box.y0 + 16, 'text-anchor': 'middle' }, d)));
+  [1, 8, 15, 22, 29].filter(d => d <= nDays).forEach(d => svg.append(sv('text', { x: X(d - 1), y: box.y0 + 17, 'text-anchor': 'middle', class: 'tick' }, d)));
   const band = (box.x1 - box.x0) / (nDays - 1);
   for (let i = 0; i < nDays; i++) {
     const hit = sv('rect', { x: X(i) - band / 2, y: box.y1, width: band, height: box.y0 - box.y1, class: 'hit' });
     svg.append(hit);
     bindTip(hit, null, () => [`Jour ${i + 1}`, [
-      cur[i] != null ? { color: 'var(--accent)', label: 'Ce mois', value: fmtNum(cur[i]) + ' h' } : null,
-      prev[i] != null ? { color: 'var(--ghost)', label: 'Mois dernier', value: fmtNum(prev[i]) + ' h' } : null,
-      { color: 'var(--muted)', label: 'Rythme objectif', value: fmtNum(goalPace[i]) + ' h' },
+      cur[i] != null ? { color: 'var(--accent)', label: names[0], value: fmtDur(cur[i] * 60) } : null,
+      prev[i] != null ? { color: 'var(--ghost)', label: names[1], value: fmtDur(prev[i] * 60) } : null,
+      { color: 'var(--muted)', label: 'Rythme objectif', value: fmtDur(goalPace[i] * 60) },
     ].filter(Boolean)]);
   }
   host.replaceChildren(svg);
 }
-/** heatmap */
+/** heatmap: one cell per day, weeks as columns, more weeks shown as history grows */
 function heatmap(host) {
-  const W0 = chartWidth(host), labW = 26, gap = 3;
-  const cols = clamp(Math.floor((W0 - labW) / 19), 10, 53);
-  const cell = Math.floor((W0 - labW) / cols) - gap;
-  const H0 = 16 + 7 * (cell + gap);
-  const svg = sv('svg', { viewBox: `0 0 ${W0} ${H0}`, width: W0, height: H0, class: 'chart' });
+  const W0 = chartWidth(host), labW = 30, gap = 4;
   const t = today(), goal = S.settings.goal, f = firstDay();
+  const maxCols = clamp(Math.floor((W0 - labW) / 20), 8, 53);
+  const since = Math.floor(diffDays(monday(f), monday(t)) / 7) + 1;
+  const cols = clamp(since, 8, maxCols);
+  const cell = Math.min(30, Math.floor((W0 - labW) / cols) - gap);
+  const H0 = 20 + 7 * (cell + gap);
+  const svg = sv('svg', { viewBox: `0 0 ${W0} ${H0}`, width: W0, height: H0, class: 'chart' });
   const startMon = addDays(monday(t), -7 * (cols - 1));
-  ['Lun', '', 'Mer', '', 'Ven', '', 'Dim'].forEach((l, i) => l && svg.append(sv('text', { x: 0, y: 16 + i * (cell + gap) + cell * 0.7 }, l)));
+  DOW_S.forEach((l, i) => (i % 2 === 0) && svg.append(sv('text', { x: 0, y: 20 + i * (cell + gap) + cell * 0.68, class: 'tick' }, l)));
   let lastMonth = -1;
   for (let w = 0; w < cols; w++) {
     const mon = addDays(startMon, 7 * w);
-    const mo = fromKey(mon).getMonth();
-    if (mo !== lastMonth) { if (w < cols - 1 || lastMonth === -1) svg.append(sv('text', { x: labW + w * (cell + gap), y: 10 }, cap(MON_S[mo]).replace('.', ''))); lastMonth = mo; }
+    const mo = fromKey(addDays(mon, 6)).getMonth();
+    if (mo !== lastMonth) { if (w < cols - 2 || lastMonth === -1) svg.append(sv('text', { x: labW + w * (cell + gap), y: 11, class: 'tick' }, cap(MON_S[mo]).replace('.', ''))); lastMonth = mo; }
     for (let d = 0; d < 7; d++) {
       const k = addDays(mon, d);
       if (k > t) continue;
-      const x = labW + w * (cell + gap), y = 16 + d * (cell + gap);
+      const x = labW + w * (cell + gap), y = 20 + d * (cell + gap);
       const v = k < f ? null : W(k);
-      const lvl = v == null || v <= 0 ? 0 : goal <= 0 ? 5 : v >= goal ? 5 : Math.min(4, 1 + Math.floor((v / goal) * 4));
-      const r = sv('rect', { x, y, width: cell, height: cell, rx: 3.5, class: 'mk', style: `fill:var(--h${lvl})${k === t ? ';stroke:var(--accent);stroke-width:2' : ''}` });
+      const lvl = v == null || v <= 0 ? 0 : goal <= 0 ? 5 : v >= goal ? 5 : v >= goal * 0.75 ? 4 : v >= goal * 0.5 ? 3 : v >= goal * 0.25 ? 2 : 1;
+      const r = sv('rect', { x, y, width: cell, height: cell, rx: Math.min(6, cell / 4), class: 'mk', style: `fill:var(--h${lvl})${k === t ? ';stroke:var(--accent);stroke-width:2' : ''}` });
       svg.append(r);
       const hit = sv('rect', { x: x - gap / 2, y: y - gap / 2, width: cell + gap, height: cell + gap, class: 'hit' });
       svg.append(hit);
-      bindTip(hit, r, () => [fmtDate(k), v == null ? [{ label: 'Avant ton premier jour', value: '' }] : [{ label: 'Travail', value: fmtDur(v) }, { label: 'Note', value: gradeOf(goal > 0 ? v / goal : 0) }]]);
+      bindTip(hit, r, () => [fmtDate(k), v == null ? [{ label: 'Avant ton premier jour', value: '' }] : [{ label: 'Travail', value: fmtDur(v) }, { label: 'Objectif', value: goal ? pct(v / goal) : '–' }]]);
     }
   }
   host.replaceChildren(svg);
@@ -1213,160 +1251,210 @@ function roundDone(res, c, dur, fromBackground) {
 }
 
 /* ---------- stats view */
-function kpi(label, value, delta, dcls) {
-  return h('div', { class: 'kpi' }, h('span', { class: 'kpi-l' }, label), h('span', { class: 'kpi-v' }, value), delta ? h('span', { class: 'kpi-d ' + (dcls || '') }, delta) : null);
-}
 const dcl = d => d > 0.5 ? 'up' : d < -0.5 ? 'down' : '';
-const darrow = (d, suffix) => `${d > 0.5 ? '▲ ' : d < -0.5 ? '▼ ' : ''}${fmtDelta(d)} ${suffix}`;
 function chartCard(title, sub, legend) {
-  const host = h('div');
+  const host = h('div', { class: 'chart-host' });
   const card = h('section', { class: 'chart-card' }, h('div', { class: 'sec-h' }, h('h2', null, title), sub ? h('p', null, sub) : null), host, legend ? h('div', { class: 'legend' }, legend) : null);
   return { card, host };
 }
 const lg = (cls, color, label) => h('span', null, h('i', { class: cls || '', style: color ? (cls === 'ln' ? `border-color:${color}` : `background:${color}`) : '' }), label);
 const pending = [];
+const weeklyGoal = () => S.cats.filter(c => !c.archived && c.counts).reduce((s, c) => s + (c.wg || 0), 0) || S.settings.goal * 7;
+
+let stMode = 'week', stAnchor = null, stSlide = '';
+function periodOf(mode, anchor) {
+  if (mode === 'day') return { mode, start: anchor, end: anchor, prevStart: addDays(anchor, -1), prevEnd: addDays(anchor, -1) };
+  if (mode === 'week') { const s = monday(anchor); return { mode, start: s, end: addDays(s, 6), prevStart: addDays(s, -7), prevEnd: addDays(s, -1) }; }
+  const s = monthStart(anchor), d = fromKey(s);
+  return { mode, start: s, end: ymd(new Date(d.getFullYear(), d.getMonth() + 1, 0, 12)), prevStart: ymd(new Date(d.getFullYear(), d.getMonth() - 1, 1, 12)), prevEnd: addDays(s, -1) };
+}
+function periodCuts(P) {
+  const t = today(), cur = P.start <= t && t <= P.end;
+  let pCut = P.prevEnd;
+  if (cur && P.mode === 'week') pCut = addDays(t, -7);
+  if (cur && P.mode === 'month') pCut = prevMonthSame(t);
+  return { cur, cut: cur ? t : P.end, pCut };
+}
+function periodNames(P) {
+  const t = today(), a = fromKey(P.start), b = fromKey(P.end);
+  if (P.mode === 'day') {
+    const n = diffDays(P.start, t);
+    return { title: fmtDate(P.start, 'long'), sub: n === 0 ? "Aujourd'hui" : n === 1 ? 'Hier' : `Il y a ${n} jours`, prev: 'la veille', prevShort: 'Veille', cur: 'Ce jour', swipe: 'jour' };
+  }
+  if (P.mode === 'week') {
+    const n = Math.round(diffDays(P.start, monday(t)) / 7);
+    return { title: `Du ${a.getDate()} ${MON_S[a.getMonth()]} au ${b.getDate()} ${MON_S[b.getMonth()]}`, sub: n === 0 ? 'Cette semaine' : n === 1 ? 'Semaine dernière' : `Il y a ${n} semaines`, prev: 'la semaine précédente', prevShort: 'Semaine précédente', cur: 'Cette semaine', swipe: 'semaine' };
+  }
+  const tm = fromKey(t), n = (tm.getFullYear() - a.getFullYear()) * 12 + tm.getMonth() - a.getMonth();
+  return { title: `${cap(MON_L[a.getMonth()])} ${a.getFullYear()}`, sub: n === 0 ? 'Ce mois' : n === 1 ? 'Mois dernier' : `Il y a ${n} mois`, prev: 'le mois précédent', prevShort: 'Mois précédent', cur: 'Ce mois', swipe: 'mois' };
+}
+function shiftPeriod(dir) {
+  const P = periodOf(stMode, stAnchor);
+  if (dir < 0 && P.start <= firstDay()) return;
+  const a = P.mode === 'day' ? addDays(P.start, dir) : dir < 0 ? P.prevEnd : addDays(P.end, 1);
+  if (a > today()) return;
+  stAnchor = a; stSlide = dir < 0 ? 'from-left' : 'from-right'; render();
+}
+function goalFor(P) { return P.mode === 'day' ? 1 / 7 : P.mode === 'week' ? 1 : (diffDays(P.start, P.end) + 1) / 7; }
+
+function periodCard() {
+  const t = today(), goal = S.settings.goal, f = firstDay();
+  const P = periodOf(stMode, stAnchor), C = periodCuts(P), N = periodNames(P);
+  const tot = sumW(P.start, C.cut), ptot = sumW(P.prevStart, C.pCut), d = tot - ptot;
+  const noPrev = P.prevEnd < f;
+  const canPrev = P.start > f, canNext = !C.cur;
+  const nav = h('div', { class: 'pnav' },
+    h('button', { class: 'icon-btn', 'aria-label': 'Période précédente', disabled: canPrev ? null : true, onclick: () => shiftPeriod(-1) }, icon('chevL')),
+    h('div', { class: 'pnav-t' }, h('div', { class: 'pnav-title' }, N.title),
+      h('div', { class: 'pnav-sub' }, h('span', null, N.sub), C.cur ? null : h('button', { class: 'linkbtn', onclick: () => { stAnchor = today(); stSlide = 'from-right'; render(); } }, 'Revenir à aujourd\'hui'))),
+    h('button', { class: 'icon-btn', 'aria-label': 'Période suivante', disabled: canNext ? null : true, onclick: () => shiftPeriod(1) }, icon('chev')));
+  const cmpTxt = noPrev ? 'Pas encore de période précédente' : `vs ${N.prev}${C.cur && P.mode !== 'day' ? ' au même jour' : ''} (${fmtDur(ptot)})`;
+  const total = h('div', { class: 'ptotal' },
+    h('div', null, h('div', { class: 'pbig' }, fmtDur(tot)), h('div', { class: 'small muted' }, C.cur && P.mode !== 'day' ? 'de travail jusqu\'ici' : 'de travail')),
+    h('div', { class: 'pdelta ' + (noPrev ? '' : dcl(d)) }, noPrev ? null : h('b', null, (d > 0.5 ? '▲ ' : d < -0.5 ? '▼ ' : '') + fmtDelta(d)), h('span', null, cmpTxt)));
+  // objective line
+  let hitsNode;
+  if (P.mode === 'day') {
+    const v = W(P.start);
+    hitsNode = goal <= 0 ? null : v >= goal ? h('p', { class: 'hits v-good' }, `✓ Objectif atteint (${pct(v / goal)})`) : C.cur ? h('p', { class: 'hits' }, `Encore ${fmtDur(goal - v)} pour l'objectif de ${fmtDur(goal)}`) : h('p', { class: 'hits v-bad' }, `Objectif manqué de ${fmtDur(goal - v)} (${pct(v / goal)})`);
+  } else {
+    let hits = 0, n = 0; const dots = [];
+    for (let k = P.start; k <= P.end; k = addDays(k, 1)) {
+      const v = W(k), ok = goal > 0 && v >= goal, done = k < t || ok;
+      if (k >= f && k <= t && done) { n++; if (ok) hits++; }
+      if (P.mode === 'week') dots.push(h('i', { class: k > t || k < f ? '' : ok ? 'hit' : k === t ? 'now' : 'miss', title: fmtDate(k) }));
+    }
+    hitsNode = h('div', { class: 'hits' }, P.mode === 'week' ? h('span', { class: 'hdots', 'aria-hidden': 'true' }, dots) : null,
+      h('span', null, h('b', null, `${hits} jour${hits > 1 ? 's' : ''}`), ` à l'objectif sur ${n}`));
+  }
+  // chart
+  const host = h('div', { class: 'chart-host' });
+  let legend = [];
+  if (P.mode === 'week') {
+    const groups = [];
+    for (let i = 0; i < 7; i++) {
+      const k = addDays(P.start, i), kp = addDays(k, -7), fut = k > t;
+      const v = fut ? 0 : W(k) / 60, pv = kp >= f ? W(kp) / 60 : 0, ok = goal > 0 && v * 60 >= goal;
+      groups.push({ l1: DOW_S[i], l2: String(fromKey(k).getDate()), strong: k === t, cur: v, prev: pv, fill: ok ? 'var(--good)' : 'var(--accent)',
+        tip: [fmtDate(k), [{ color: ok ? 'var(--good)' : 'var(--accent)', label: 'Ce jour', value: fut ? '–' : fmtDur(v * 60) }, { color: 'var(--ghost)', label: `${DOW_L[i]} d'avant`, value: fmtDur(pv * 60) }]] });
+    }
+    pending.push(() => grouped(host, groups, { goal: goal / 60 }));
+    legend = [lg('', 'var(--good)', 'Objectif atteint'), lg('', 'var(--accent)', 'Sous l\'objectif'), lg('gh', null, 'Semaine précédente'), lg('dash', null, `Objectif ${fmtDur(goal)}`)];
+  } else if (P.mode === 'month') {
+    const data = [], nD = diffDays(P.start, P.end) + 1;
+    for (let i = 0; i < nD; i++) {
+      const k = addDays(P.start, i), fut = k > t, v = fut ? 0 : W(k) / 60, ok = goal > 0 && v * 60 >= goal;
+      data.push({ label: String(i + 1), v, strong: k === t, fill: ok ? 'var(--good)' : 'var(--accent)', tip: [fmtDate(k), [{ label: 'Travail', value: fut ? '–' : fmtDur(v * 60) }, { label: 'Objectif', value: goal && !fut ? pct(v * 60 / goal) : '–' }]] });
+    }
+    pending.push(() => columns(host, data, { goal: goal / 60, height: 190, labelAt: i => [0, 4, 9, 14, 19, 24, 29].includes(i) && i < nD }));
+    legend = [lg('', 'var(--good)', 'Objectif atteint'), lg('', 'var(--accent)', 'Sous l\'objectif'), lg('dash', null, `Objectif ${fmtDur(goal)}`)];
+  } else {
+    const cur = dayData(P.start), prv = P.prevStart >= f ? dayData(P.prevStart) : { cats: {} };
+    const rows = S.cats.filter(c => (cur.cats[c.id] || 0) > 0 || (prv.cats[c.id] || 0) > 0)
+      .map(c => ({ label: c.name, v: (cur.cats[c.id] || 0) / 60, pv: (prv.cats[c.id] || 0) / 60, fill: `var(--c${c.color})`, tip: [c.name, [{ label: 'Ce jour', value: fmtDur(cur.cats[c.id] || 0) }, { color: 'var(--ghost)', label: 'La veille', value: fmtDur(prv.cats[c.id] || 0) }]] }));
+    if (rows.length) { pending.push(() => hbars(host, rows)); legend = []; }
+    else host.append(h('p', { class: 'empty' }, 'Rien d\'enregistré ce jour‑là.'));
+  }
+  // categories table
+  const sc = goalFor(P);
+  const tb = h('table', { class: 'ctable' }, h('thead', null, h('tr', null, h('th', null, 'Catégorie'), h('th', null, 'Temps'), h('th', null, 'Écart'), h('th', null, 'Objectif'))));
+  const body = h('tbody');
+  let totW = 0, totP = 0;
+  S.cats.filter(c => !c.archived || sumCat(c.id, P.start, C.cut) > 0).forEach(c => {
+    const w = sumCat(c.id, P.start, C.cut), p = noPrev ? 0 : sumCat(c.id, P.prevStart, C.pCut), dd = w - p, g = (c.wg || 0) * sc;
+    if (c.counts) { totW += w; totP += p; }
+    const ratio = g ? w / g : null;
+    body.append(h('tr', null,
+      h('td', null, h('div', { class: 'cn' }, h('span', { class: 'dot', style: `background:var(--c${c.color})` }), h('span', null, c.name, !c.counts ? h('span', { class: 'tag' }, ' hors travail') : null)),
+        g ? h('div', { class: 'mini' }, h('i', { style: `width:${clamp(ratio * 100, 0, 100)}%;background:${ratio >= 1 ? 'var(--good)' : `var(--c${c.color})`}` })) : null),
+      h('td', null, fmtDur(w)), h('td', { class: noPrev ? '' : dcl(dd) }, noPrev ? '–' : fmtDelta(dd)), h('td', null, g ? pct(ratio) : '–')));
+  });
+  const dT = totW - totP, gT = weeklyGoal() * sc;
+  body.append(h('tr', { class: 'tot' }, h('td', null, 'Total travail'), h('td', null, fmtDur(totW)), h('td', { class: noPrev ? '' : dcl(dT) }, noPrev ? '–' : fmtDelta(dT)), h('td', null, gT ? pct(totW / gT) : '–')));
+  tb.append(body);
+
+  const leg = legend.length ? h('div', { class: 'legend' }, legend) : null;
+  const pbody = P.mode === 'day'
+    ? h('div', { class: 'pbody ' + stSlide }, total, hitsNode, h('div', { class: 'pdiv' }), h('div', { class: 'sec-h' }, h('h2', { style: 'font-size:17px' }, 'Par catégorie'), h('p', null, 'barre fine : la veille')), host, leg)
+    : h('div', { class: 'pbody ' + stSlide }, total, hitsNode, host, leg,
+    h('div', { class: 'pdiv' }), h('div', { class: 'sec-h' }, h('h2', { style: 'font-size:17px' }, 'Par catégorie'), h('p', null, noPrev ? '' : `écart avec ${N.prev}${C.cur && P.mode !== 'day' ? ' au même jour' : ''}`)), h('div', { class: 'tscroll' }, tb));
+  stSlide = '';
+  const card = h('section', { class: 'card pcard', 'aria-label': 'Analyse par période' }, nav, pbody, h('p', { class: 'swipe-hint' }, `Glisse vers la droite pour voir ${N.prev}`));
+  // swipe
+  let sx = null, sy = null;
+  card.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') return; sx = e.clientX; sy = e.clientY; });
+  card.addEventListener('pointerup', e => {
+    if (sx == null) return; const dx = e.clientX - sx, dy = e.clientY - sy; sx = null;
+    if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.4) { hideTip(); shiftPeriod(dx > 0 ? -1 : 1); }
+  });
+  card.addEventListener('pointercancel', () => { sx = null; });
+  return { card, P };
+}
+function raceCard(ms) {
+  const t = today(), f = firstDay(), goalH = S.settings.goal / 60;
+  const d0 = fromKey(ms), nD = dim(d0.getFullYear(), d0.getMonth());
+  const pd = new Date(d0.getFullYear(), d0.getMonth() - 1, 1, 12), pms = ymd(pd), pnD = dim(pd.getFullYear(), pd.getMonth());
+  const hasPrev = addDays(pms, pnD - 1) >= f;
+  const cur = [], prev = [], pace = [];
+  let a = 0, b = 0;
+  for (let i = 0; i < nD; i++) {
+    const k = addDays(ms, i);
+    if (k <= t) { a += W(k); cur.push(a / 60); } else cur.push(null);
+    if (i < pnD && hasPrev) { b += W(addDays(pms, i)); prev.push(b / 60); } else prev.push(null);
+    pace.push(goalH * (i + 1));
+  }
+  const isCur = monthStart(t) === ms;
+  const curTot = a, prevSame = isCur ? sumW(pms, prevMonthSame(t)) : b;
+  const mN = MON_L[d0.getMonth()], pN = MON_L[pd.getMonth()];
+  const sub = !hasPrev ? `${cap(mN)} : ${fmtDur(curTot)}, objectif du mois ${fmtDur(goalH * 60 * nD)}` : `${cap(mN)} : ${fmtDur(curTot)} contre ${fmtDur(prevSame)} ${isCur ? `au même jour en ${pN}` : `en ${pN}`}`;
+  const c = chartCard('La course du mois', sub, [lg('ln', 'var(--accent)', cap(mN)), hasPrev ? lg('ln', 'var(--ghost)', cap(pN)) : null, lg('dash', null, 'Rythme de l\'objectif')]);
+  pending.push(() => race(c.host, cur, prev, pace, nD, [cap(mN), cap(pN)]));
+  return c.card;
+}
 function viewStats() {
   const v = h('div', { class: 'view' });
   computeLive();
-  const m = metrics();
   v.append(h('h1', { class: 'page-title' }, 'Stats'));
   if (!hasData()) { v.append(h('div', { class: 'card empty' }, 'Tes stats apparaîtront dès ta première session.', h('button', { class: 'btn sm primary', onclick: () => go('chrono') }, 'Lancer un chrono'))); return v; }
-  // verdict block
-  v.append(h('section', { class: 'card' }, h('div', { class: 'gradehead' }, gradeBadge(m.grade, true), h('div', { class: 'verdicts' }, verdictNode(verdictToday(m)), verdictNode(verdictWeek(m)), verdictNode(verdictGoal(m))))));
-  // KPIs
-  const t = m.t, dM = m.month - m.monthPrev, dW = m.week - m.weekPrev, dD = m.today - m.yday;
-  v.append(h('div', { class: 'kpis' },
-    kpi("Aujourd'hui", fmtDur(m.today), m.first >= t ? 'Premier jour suivi' : darrow(dD, 'vs hier'), m.first >= t ? '' : dcl(dD)),
-    kpi('Cette semaine', fmtDur(m.week), m.first > addDays(t, -7) ? 'Première semaine suivie' : darrow(dW, 'vs S‑1'), m.first > addDays(t, -7) ? '' : dcl(dW)),
-    kpi('Ce mois', fmtDur(m.month), m.first > prevMonthSame(t) ? 'Premier mois suivi' : darrow(dM, 'vs M‑1'), m.first > prevMonthSame(t) ? '' : dcl(dM)),
-    kpi('Série à l\'objectif', `${m.streak} j`, m.streakAtStake ? `${m.streakAtStake} j en jeu, record ${m.best} j` : `Record : ${m.best} j`),
-    kpi('Moyenne 7 jours', m.avg7 == null ? '–' : fmtDur(m.avg7), m.avg7 != null && m.avg7Prev != null ? darrow(m.avg7 - m.avg7Prev, 'par jour') : 'Jours complets uniquement', m.avg7 != null && m.avg7Prev != null ? dcl(m.avg7 - m.avg7Prev) : ''),
-    kpi('Objectif tenu (30 j)', m.rate30 == null ? '–' : pct(m.rate30), `${m.hit30} jour${m.hit30 > 1 ? 's' : ''} sur ${m.n30}`),
-    kpi('Record sur un jour', fmtDur(m.record), m.recordDay ? fmtDate(m.recordDay) : ''),
-    kpi('Total cumulé', fmtDur(m.total), `${m.days} jour${m.days > 1 ? 's' : ''} suivis`)));
-
-  const goalH = m.goal / 60, f = m.first;
-  // 30 days
+  const t = today(), f = firstDay(), goal = S.settings.goal;
+  if (!stAnchor || stAnchor > t || periodOf(stMode, stAnchor).end < f) stAnchor = t;
+  const P0 = periodOf(stMode, stAnchor), C0 = periodCuts(P0);
+  v.append(h('div', { class: 'seg', role: 'tablist', 'aria-label': 'Période' }, [['day', 'Jour'], ['week', 'Semaine'], ['month', 'Mois']].map(([k, l]) => h('button', {
+    class: stMode === k ? 'on' : '', role: 'tab', 'aria-selected': stMode === k ? 'true' : 'false',
+    onclick: () => { if (stMode === k) return; stAnchor = C0.cur ? t : P0.end; stMode = k; render(); },
+  }, l))));
+  const { card, P } = periodCard();
+  v.append(card);
+  v.append(raceCard(P.mode === 'month' ? P.start : monthStart(t)));
+  // regularity
   {
-    const data = [], line = [];
-    for (let i = 29; i >= 0; i--) {
-      const k = addDays(t, -i), val = W(k) / 60, before = k < f;
-      const ok = m.goal > 0 && W(k) >= m.goal;
-      data.push({ label: fmtDate(k, 'num'), v: val, fill: k === t && !ok ? 'var(--accent)' : ok ? 'var(--good)' : 'var(--bad)', opacity: k === t && !ok ? 1 : null,
-        tip: [fmtDate(k), [{ label: 'Travail', value: fmtDur(W(k)) }, { label: 'Moy. 7 j', value: before ? '–' : fmtH(avgUpTo(k, f)) }, { label: 'Note', value: before ? '–' : gradeOf(m.goal ? W(k) / m.goal : 0) }]] });
-      line.push(before ? null : avgUpTo(k, f) / 60);
-    }
-    const c = chartCard('30 derniers jours', 'heures de travail par jour', [lg('', 'var(--good)', 'Objectif atteint'), lg('', 'var(--bad)', 'Sous l\'objectif'), lg('', 'var(--accent)', 'Aujourd\'hui, en cours'), lg('ln', 'var(--ink)', 'Moyenne 7 j'), lg('dash', null, 'Objectif')]);
-    v.append(c.card); pending.push(() => columns(c.host, data, { goal: goalH, line, every: 5 }));
-  }
-  // month race
-  {
-    const d0 = fromKey(t), nD = dim(d0.getFullYear(), d0.getMonth());
-    const pm = prevMonthSame(t), pd = fromKey(pm), pnD = dim(pd.getFullYear(), pd.getMonth());
-    const ms = monthStart(t), pms = pm.slice(0, 8) + '01';
-    const cur = [], prev = [], pace = [];
-    let a = 0, b = 0;
-    for (let i = 0; i < nD; i++) {
-      const k = addDays(ms, i);
-      if (k <= t) { a += W(k); cur.push(a / 60); } else cur.push(null);
-      if (i < pnD) { const kp = addDays(pms, i); b += kp >= f ? W(kp) : 0; prev.push(pms >= f || addDays(pms, pnD - 1) >= f ? b / 60 : null); } else prev.push(null);
-      pace.push(goalH * (i + 1));
-    }
-    const c = chartCard('La course du mois', `${fmtH(m.month)} contre ${fmtH(m.monthPrev)} au même jour du mois dernier`, [lg('ln', 'var(--accent)', 'Ce mois'), lg('ln', 'var(--ghost)', 'Mois dernier'), lg('dash', null, 'Rythme de l\'objectif')]);
-    v.append(c.card); pending.push(() => race(c.host, cur, prev, pace, nD));
-  }
-  // heatmap
-  {
-    const c = chartCard('Régularité', 'chaque case est un jour, plus c\'est vert plus tu as bossé', [lg('', 'var(--h0)', '0'), lg('', 'var(--h2)', 'moins de la moitié'), lg('', 'var(--h4)', 'presque'), lg('', 'var(--h5)', 'objectif atteint')]);
+    const c = chartCard('Régularité', 'Une case par jour. Plus elle est verte, plus tu t\'approches de l\'objectif.', [lg('', 'var(--h0)', 'rien'), lg('', 'var(--h2)', '25 à 49 %'), lg('', 'var(--h4)', '75 à 99 %'), lg('', 'var(--h5)', 'objectif atteint')]);
     v.append(c.card); pending.push(() => heatmap(c.host));
-  }
-  // category table this week
-  {
-    const mon = monday(t), pmon = addDays(mon, -7), pt = addDays(t, -7);
-    const tb = h('table', { class: 'ctable' }, h('thead', null, h('tr', null, h('th', null, 'Catégorie'), h('th', null, 'Semaine'), h('th', null, 'vs S‑1'), h('th', null, 'Obj.'))));
-    const body = h('tbody');
-    const cats = S.cats.filter(c => !c.archived || sumCat(c.id, pmon, t) > 0);
-    let totW = 0, totP = 0;
-    cats.forEach(c => {
-      const w = sumCat(c.id, mon, t), p = sumCat(c.id, pmon, pt), d = w - p;
-      if (c.counts) { totW += w; totP += p; }
-      const ratio = c.wg ? w / c.wg : null;
-      body.append(h('tr', null,
-        h('td', null, h('div', { class: 'cn' }, h('span', { class: 'dot', style: `background:var(--c${c.color})` }), c.name), !c.counts ? h('span', { class: 'tag' }, 'hors travail') : null, c.wg ? h('div', { class: 'mini' }, h('i', { style: `width:${clamp(ratio * 100, 0, 100)}%;background:${ratio >= 1 ? 'var(--good)' : `var(--c${c.color})`}` })) : null),
-        h('td', null, fmtH(w)), h('td', { class: dcl(d) }, d === 0 ? '=' : (d > 0 ? '+' : '−') + fmtNum(Math.abs(d) / 60)), h('td', null, c.wg ? pct(ratio) : '–')));
-    });
-    const dT = totW - totP;
-    body.append(h('tr', { class: 'tot' }, h('td', null, 'Total travail'), h('td', null, fmtH(totW)), h('td', { class: dcl(dT) }, dT === 0 ? '=' : (dT > 0 ? '+' : '−') + fmtNum(Math.abs(dT) / 60)), h('td', null, weeklyGoal() ? pct(totW / weeklyGoal()) : '–')));
-    tb.append(body);
-    v.append(h('section', { class: 'chart-card' }, h('div', { class: 'sec-h' }, h('h2', null, 'Par catégorie, cette semaine'), h('p', null, 'en heures')), tb));
-  }
-  // stacked 14 days
-  {
-    const days = [];
-    const cats = S.cats;
-    for (let i = 13; i >= 0; i--) {
-      const k = addDays(t, -i), dd = dayData(k);
-      const parts = cats.map(c => ({ c: c.id, v: (dd.cats[c.id] || 0) / 60, fill: `var(--c${c.color})` }));
-      days.push({ label: `${DOW_S[dow(k)].slice(0, 2)} ${fromKey(k).getDate()}`, parts, tip: [fmtDate(k), parts.filter(p => p.v > 0).map(p => ({ color: p.fill, label: catName(p.c), value: fmtDur(p.v * 60) })).concat([{ label: 'Total', value: fmtDur(dd.all) }])] });
-    }
-    const used = cats.filter(c => days.some(d => d.parts.some(p => p.c === c.id && p.v > 0)));
-    const c = chartCard('14 derniers jours par catégorie', 'toutes catégories, sport compris', used.map(cc => lg('', `var(--c${cc.color})`, cc.name)));
-    v.append(c.card); pending.push(() => stacked(c.host, days));
-  }
-  // breakdown 30 days
-  {
-    const s30 = addDays(t, -29);
-    const rows = S.cats.map(c => ({ c, v: sumCat(c.id, s30, t) / 60 })).filter(r => r.v > 0 || !r.c.archived).sort((a, b) => b.v - a.v)
-      .map(r => ({ label: r.c.name, v: r.v, fill: `var(--c${r.c.color})`, tip: [r.c.name, [{ label: '30 derniers jours', value: fmtDur(r.v * 60) }, { label: 'Par jour en moyenne', value: fmtDur(r.v * 60 / 30) }]] }));
-    const c = chartCard('Répartition sur 30 jours', 'où part ton temps');
-    v.append(c.card); pending.push(() => hbars(c.host, rows));
-  }
-  // 12 weeks
-  {
-    const mon = monday(t), data = [], hits = [];
-    for (let i = 11; i >= 0; i--) {
-      const a = addDays(mon, -7 * i), b = addDays(a, 6);
-      const tot = sumW(a, b > t ? t : b);
-      let n = 0; for (let k = a; k <= b && k <= t; k = addDays(k, 1)) if (m.goal > 0 && W(k) >= m.goal) n++;
-      const lab = `${fromKey(a).getDate()}/${fromKey(a).getMonth() + 1}`;
-      data.push({ label: lab, v: tot / 60, fill: 'var(--accent)', opacity: i === 0 ? 0.55 : null, tip: [`Semaine du ${fmtDate(a)}`, [{ label: 'Travail', value: fmtDur(tot) }, { label: 'Jours à l\'objectif', value: `${n}/7` }]] });
-      hits.push({ label: lab, v: n, fill: 'var(--good)', tip: [`Semaine du ${fmtDate(a)}`, [{ label: 'Jours à l\'objectif', value: `${n} sur 7` }]] });
-    }
-    const c = chartCard('12 dernières semaines', 'heures de travail, semaine en cours en clair', [lg('dash', null, `Objectif hebdo (${fmtH(weeklyGoal(), 0)})`)]);
-    v.append(c.card); pending.push(() => columns(c.host, data, { goal: weeklyGoal() / 60 || null, labels: true, every: 2, labelFmt: d => fmtNum(d.v, 0) }));
-    const c2 = chartCard('Jours à l\'objectif par semaine', 'sur 7');
-    v.append(c2.card); pending.push(() => columns(c2.host, hits, { height: 150, labels: true, every: 2, labelFmt: d => String(d.v), tick: v => String(v) }));
   }
   // weekday averages
   {
     const sums = Array(7).fill(0), cnt = Array(7).fill(0);
     for (let k = f; k < t; k = addDays(k, 1)) { const d = dow(k); sums[d] += W(k); cnt[d]++; }
-    const data = DOW_S.map((l, i) => ({ label: l, v: cnt[i] ? sums[i] / cnt[i] / 60 : 0, fill: 'var(--accent)', tip: [cap(DOW_L[i]), [{ label: 'Moyenne', value: cnt[i] ? fmtDur(sums[i] / cnt[i]) : '–' }, { label: 'Jours comptés', value: String(cnt[i]) }]] }));
-    const minI = data.reduce((a, d, i) => (cnt[i] && d.v < data[a].v) ? i : a, data.findIndex((_, i) => cnt[i]) < 0 ? 0 : data.findIndex((_, i) => cnt[i]));
-    const c = chartCard('Tes jours de la semaine', cnt.some(Boolean) ? `ton jour le plus faible : le ${DOW_L[minI]}` : 'moyenne par jour', [lg('dash', null, 'Objectif')]);
-    v.append(c.card); pending.push(() => columns(c.host, data, { goal: goalH, labels: true, every: 1, labelFmt: d => fmtNum(d.v, 1) }));
+    const avg = sums.map((s, i) => cnt[i] ? s / cnt[i] : null);
+    let minI = -1; avg.forEach((a, i) => { if (a != null && (minI < 0 || a < avg[minI])) minI = i; });
+    const data = DOW_S.map((l, i) => ({ label: l, v: (avg[i] || 0) / 60, fill: i === minI ? 'var(--ghost)' : 'var(--accent)', tip: [cap(DOW_L[i]), [{ label: 'Moyenne', value: avg[i] == null ? '–' : fmtDur(avg[i]) }, { label: 'Jours comptés', value: String(cnt[i]) }]] }));
+    const c = chartCard('Tes jours de la semaine', minI >= 0 ? `Moyenne par jour depuis le début. Ton jour le plus faible : le ${DOW_L[minI]}.` : 'Moyenne par jour, dès que tu auras une journée complète.', [lg('', 'var(--accent)', 'Moyenne'), minI >= 0 ? lg('', 'var(--ghost)', 'Jour le plus faible') : null, lg('dash', null, `Objectif ${fmtDur(goal)}`)]);
+    v.append(c.card); pending.push(() => columns(c.host, data, { goal: goal / 60, labels: true, labelFmt: d => d.v ? hLabel(d.v) : '' }));
   }
   // 12 months
   {
     const d0 = fromKey(t), data = [];
     for (let i = 11; i >= 0; i--) {
-      const y = d0.getFullYear(), mo = d0.getMonth() - i;
-      const dt = new Date(y, mo, 1, 12), a = ymd(dt), b0 = ymd(new Date(dt.getFullYear(), dt.getMonth() + 1, 0, 12)), b = b0 > t ? t : b0;
+      const dt = new Date(d0.getFullYear(), d0.getMonth() - i, 1, 12), a = ymd(dt), b0 = ymd(new Date(dt.getFullYear(), dt.getMonth() + 1, 0, 12)), b = b0 > t ? t : b0;
       const tot = b < f ? 0 : sumW(a < f ? f : a, b);
-      data.push({ label: cap(MON_S[dt.getMonth()]).replace('.', '').slice(0, 4), v: tot / 60, fill: 'var(--accent)', opacity: i === 0 ? 0.55 : null, tip: [`${cap(MON_L[dt.getMonth()])} ${dt.getFullYear()}`, [{ label: 'Travail', value: fmtH(tot) }]] });
+      data.push({ label: cap(MON_S[dt.getMonth()]).replace('.', '').slice(0, 4), v: tot / 60, strong: i === 0, fill: 'var(--accent)', opacity: i === 0 ? 0.6 : null,
+        onPick: () => { stMode = 'month'; stAnchor = a; stSlide = ''; render(); app().scrollTop = 0; } });
     }
-    const c = chartCard('12 derniers mois', 'heures de travail, mois en cours en clair');
-    v.append(c.card); pending.push(() => columns(c.host, data, { labels: true, every: 2, labelFmt: d => fmtNum(d.v, 0) }));
+    const c = chartCard('12 derniers mois', 'Heures de travail par mois. Touche un mois pour l\'analyser en détail.');
+    v.append(c.card); pending.push(() => columns(c.host, data, { labels: true, labelFmt: d => d.v ? fmtNum(d.v, 0) : '', labelAt: i => i % 2 === 1 }));
   }
-  v.append(h('p', { class: 'note' }, 'Touche un graphique pour voir les valeurs. Les catégories hors travail (comme le sport) sont suivies mais ne comptent pas dans tes heures de travail.'));
   return v;
 }
-function avgUpTo(k, f) {
-  const a = addDays(k, -6), s = a < f ? f : a;
-  const n = diffDays(s, k) + 1;
-  return n > 0 ? sumW(s, k) / n : 0;
-}
-const weeklyGoal = () => S.cats.filter(c => !c.archived && c.counts).reduce((s, c) => s + (c.wg || 0), 0) || S.settings.goal * 7;
 
 /* ---------- journal */
 let journalLimit = 45;
@@ -1732,7 +1820,7 @@ function markSVG(size) {
 
 /* ================= shell ================= */
 const TABS = [['today', "Aujourd'hui"], ['chrono', 'Chrono'], ['stats', 'Stats'], ['journal', 'Journal'], ['settings', 'Réglages']];
-function go(tab) { TAB = tab; render(); window.scrollTo(0, 0); }
+function go(tab) { if (tab === 'stats' && TAB !== 'stats') { stAnchor = null; stSlide = ''; } TAB = tab; render(); app().scrollTop = 0; }
 function render() {
   computeLive();
   pending.length = 0;
@@ -1740,7 +1828,7 @@ function render() {
   const root = app();
   const view = TAB === 'today' ? viewToday() : TAB === 'chrono' ? viewChrono() : TAB === 'stats' ? viewStats() : TAB === 'journal' ? viewJournal() : viewSettings();
   const pv = PREVIEW && TAB === 'today' ? h('div', { class: 'warnline', style: 'margin-bottom:14px' }, h('span', null, h('b', null, 'Aperçu avec des données d\'exemple. '), 'Pour suivre tes vraies heures, installe l\'app sur ton écran d\'accueil. ', h('button', { style: 'color:var(--tint);font-weight:650;font-size:14px', onclick: () => confirmSheet('Repartir de zéro ?', 'Les données d\'exemple seront effacées de cet aperçu.', 'Repartir de zéro', () => { S = defaults(); save(); render(); onboarding(); }) }, 'Repartir de zéro'))) : null;
-  root.replaceChildren(...[runBanner(), pv, view].filter(Boolean));
+  root.replaceChildren(h('div', { class: 'app-in' }, ...[runBanner(), pv, view].filter(Boolean)));
   if (TAB === 'chrono') liveChrono();
   const nav = $('#tabs');
   nav.replaceChildren(h('div', { class: 'tabbar-in' }, TABS.map(([k, l]) => h('button', { class: 'tab' + (TAB === k ? ' on' : ''), 'aria-current': TAB === k ? 'page' : null, onclick: () => go(k) }, icon(k), l, k === 'chrono' && S.timer && S.timer.runStart ? h('span', { class: 'pulse', 'aria-label': 'Chrono en cours' }) : null))));
