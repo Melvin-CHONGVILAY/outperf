@@ -357,6 +357,21 @@ textarea.input{height:150px;padding:12px 14px;font-size:16px;line-height:1.4;res
 .card-sub{font-size:13px;color:var(--muted);padding:0 4px 10px;line-height:1.4}
 .swipe-hint{font-size:12px;color:var(--muted);text-align:center;margin-top:-4px}
 .chart-card .sec-h p{line-height:1.4}
+.form-err{color:var(--bad-ink);font-size:14px;font-weight:550;min-height:0}
+.form-err:empty{display:none}
+.linkbtn{color:var(--tint);font-weight:650;font-size:inherit;padding:0}
+.note .linkbtn{font-size:13px}
+.acct{display:flex;flex-direction:column;gap:14px}
+.acct p{font-size:15px;color:var(--ink-2);line-height:1.45}
+.acct b{color:var(--ink)}
+.onb-h2{font-size:30px;line-height:1.1;font-weight:800;letter-spacing:-.02em;text-wrap:balance}
+.perks{list-style:none;display:flex;flex-direction:column;gap:12px}
+.perks li{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-md);padding:14px 16px;font-size:15px;color:var(--ink-2);line-height:1.4}
+.perks b{color:var(--ink)}
+.onb-dots{display:flex;gap:6px}
+.onb-dots i{width:22px;height:4px;border-radius:2px;background:var(--line-2)}
+.onb-dots i.on{background:var(--accent)}
+[hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 @media (min-width:600px){.kpis{grid-template-columns:repeat(4,1fr)}}
 
@@ -369,6 +384,8 @@ textarea.input{height:150px;padding:12px 14px;font-size:16px;line-height:1.4;res
 <nav id="tabs" class="tabbar" aria-label="Navigation"></nav>
 </div>
 <noscript><p style="padding:24px">Active JavaScript pour utiliser Outperf.</p></noscript>
+<script src="config.js"></script>
+<script src="vendor/supabase.js"></script>
 <script>
 'use strict';
 (() => {
@@ -443,6 +460,96 @@ const pad2 = n => String(n).padStart(2, '0');
 const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 const r1 = n => Math.round(n * 100) / 100;
 
+/* ================= platform: native shell (Capacitor) and configuration ================= */
+const CAP = window.Capacitor;
+const NATIVE = !!(CAP && typeof CAP.isNativePlatform === 'function' && CAP.isNativePlatform());
+const plug = n => (NATIVE && CAP.Plugins && CAP.Plugins[n]) || null;
+const CFG = Object.assign({ supabaseUrl: '', supabaseAnonKey: '', privacyUrl: '', termsUrl: '', supportUrl: '', contactEmail: '' }, window.OUTPERF_CONFIG || {});
+// Monetisation hook. Version 1 is entirely free; a later version gates chosen features behind isPro()
+// and an Apple in-app purchase (App Store guideline 3.1.1).
+const isPro = () => true;
+function haptic(kind) {
+  const H = plug('Haptics'); if (!H) return;
+  try {
+    if (kind === 'success' || kind === 'warning') H.notification({ type: kind === 'success' ? 'SUCCESS' : 'WARNING' });
+    else H.impact({ style: kind === 'heavy' ? 'HEAVY' : kind === 'medium' ? 'MEDIUM' : 'LIGHT' });
+  } catch (e) { }
+}
+function openLink(url) {
+  if (!url) return;
+  const B = plug('Browser');
+  if (B && /^https?:/.test(url)) { B.open({ url }).catch(() => { location.href = url; }); return; }
+  const a = h('a', { href: url, target: '_blank', rel: 'noopener' }); document.body.append(a); a.click(); a.remove();
+}
+const NOTIF_ROUND = 1001, NOTIF_EVENING = [2001, 2002, 2003, 2004, 2005, 2006, 2007];
+async function notifAllowed(ask) {
+  const LN = plug('LocalNotifications'); if (!LN) return false;
+  try {
+    let p = await LN.checkPermissions();
+    if (p.display === 'granted') return true;
+    if (!ask || p.display === 'denied') return false;
+    p = await LN.requestPermissions();
+    return p.display === 'granted';
+  } catch (e) { return false; }
+}
+async function notifCancel(ids) {
+  const LN = plug('LocalNotifications'); if (!LN) return;
+  try { await LN.cancel({ notifications: ids.map(id => ({ id })) }); } catch (e) { }
+}
+async function notifSchedule(list) {
+  const LN = plug('LocalNotifications'); if (!LN || !list.length) return;
+  try { await LN.schedule({ notifications: list }); } catch (e) { }
+}
+// End of a round or a break: iOS shows it even when the app is closed.
+async function scheduleRoundNotif() {
+  await notifCancel([NOTIF_ROUND]);
+  const t = S.timer;
+  if (!t || t.mode === 'chrono' || !t.dur || !t.runStart) return;
+  if (!(await notifAllowed(true))) return;
+  const left = t.dur - elapsed(t);
+  if (left <= 1000) return;
+  const brk = t.mode === 'break';
+  notifSchedule([{ id: NOTIF_ROUND, title: brk ? 'Pause terminée' : 'Round terminé', body: brk ? 'On y retourne. Lance le round suivant.' : `${fmtDur(t.dur / 60000)} de ${catName(t.c)} au compteur. Ouvre Outperf pour enchaîner.`, schedule: { at: new Date(Date.now() + left), allowWhileIdle: true }, sound: S.settings.sound ? undefined : null }]);
+}
+// Evening reminder for the next 7 days. Today's message is written from the live numbers.
+const EVENING_LINES = [
+  'Ton toi d\'hier a placé la barre. Note tes heures et passe devant.',
+  'Une série se construit un soir après l\'autre. Tes heures du jour ?',
+  'Discipline du jour : 30 secondes pour noter ce que tu as fait.',
+  'Les gens qui avancent mesurent. Saisis tes heures.',
+  'Pas d\'heures notées aujourd\'hui ? Il est encore temps.',
+  'Objectif du jour : fais mieux qu\'hier. Où en es tu ?',
+  'Tes stats n\'attendent que toi. Note ta journée.',
+];
+let evT = null;
+function scheduleEvening(delay) { clearTimeout(evT); evT = setTimeout(scheduleEveningNow, delay == null ? 1500 : delay); }
+async function scheduleEveningNow() {
+  if (!NATIVE) return;
+  await notifCancel(NOTIF_EVENING);
+  const st = S.settings;
+  if (!st.remind || !(await notifAllowed(false))) return;
+  const hh = Math.floor(st.remindAt / 60), mm = st.remindAt % 60, now = Date.now();
+  computeLive(); const m = metrics();
+  const list = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(); d.setDate(d.getDate() + i); d.setHours(hh, mm, 0, 0);
+    if (d.getTime() <= now + 60000) continue;
+    let body = EVENING_LINES[(d.getDate() + i) % EVENING_LINES.length];
+    if (i === 0) {
+      if (m.goal > 0 && m.todayHit) continue;
+      if (m.streakAtStake) body = `Ta série de ${m.streakAtStake} jour${m.streakAtStake > 1 ? 's' : ''} est en jeu. Il te manque ${fmtDur(m.goal - m.today)}.`;
+      else if (m.yday > m.today) body = `Encore ${fmtDur(m.yday - m.today + 1)} pour battre ton toi d'hier.`;
+      else if (m.goal > m.today) body = `Il te manque ${fmtDur(m.goal - m.today)} pour ton objectif du jour.`;
+    }
+    list.push({ id: NOTIF_EVENING[i], title: 'Outperf', body, schedule: { at: d, allowWhileIdle: true } });
+  }
+  notifSchedule(list);
+}
+function setStatusBar(dark) {
+  const SB = plug('StatusBar'); if (!SB) return;
+  try { SB.setStyle({ style: dark ? 'DARK' : 'LIGHT' }); } catch (e) { }
+}
+
 /* ================= dates ================= */
 const DOW_S = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const DOW_L = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
@@ -506,8 +613,8 @@ let memStore = null;
 function defaults() {
   return {
     v: 1,
-    settings: { goal: 300, dayEnd: 0, grades: [130, 100, 80, 50], presets: [25, 50, 90], theme: 'auto', wake: true, sound: true, lastBackup: 0, onboarded: false },
-    cats: [], entries: [], timer: null,
+    settings: { goal: 300, dayEnd: 0, grades: [130, 100, 80, 50], presets: [25, 50, 90], theme: 'auto', wake: true, sound: true, lastBackup: 0, onboarded: false, remind: false, remindAt: 21 * 60 },
+    cats: [], entries: [], timer: null, tomb: { e: {}, c: {} }, mt: 0,
   };
 }
 function normalize(o) {
@@ -517,20 +624,48 @@ function normalize(o) {
   st.settings = Object.assign(defaults().settings, o.settings || {});
   st.cats = Array.isArray(o.cats) ? o.cats.filter(c => c && c.id && typeof c.name === 'string') : [];
   st.entries = Array.isArray(o.entries) ? o.entries.filter(e => e && e.id && /^\d{4}-\d{2}-\d{2}$/.test(e.d) && isFinite(e.m)) : [];
+  st.tomb = { e: Object.assign({}, o.tomb && o.tomb.e), c: Object.assign({}, o.tomb && o.tomb.c) };
   if (st.timer && !Array.isArray(st.timer.segs)) st.timer = null;
   return st;
 }
-function load() {
+async function load() {
   let raw = null;
-  try { raw = localStorage.getItem(KEY); } catch (e) { raw = memStore; }
+  const P = plug('Preferences');
+  if (P) { try { raw = (await P.get({ key: KEY })).value; } catch (e) { } }
+  if (!raw) { try { raw = localStorage.getItem(KEY); } catch (e) { raw = memStore; } }
   if (!raw) return defaults();
   try { return normalize(JSON.parse(raw)); } catch (e) { return defaults(); }
 }
-function save() {
+// Deleted items leave a dated tombstone so a deletion on one device wins over an older copy elsewhere.
+let lastIds = null;
+function trackDeletes() {
+  const now = Date.now();
+  const ce = new Set(S.entries.map(e => e.id)), cc = new Set(S.cats.map(c => c.id));
+  if (lastIds) {
+    for (const id of lastIds.e) if (!ce.has(id)) S.tomb.e[id] = now;
+    for (const id of lastIds.c) if (!cc.has(id)) S.tomb.c[id] = now;
+  }
+  for (const id in S.tomb.e) if (ce.has(id)) { delete S.tomb.e[id]; const e = S.entries.find(x => x.id === id); if (e) e.u = now; }
+  for (const id in S.tomb.c) if (cc.has(id)) { delete S.tomb.c[id]; const c = S.cats.find(x => x.id === id); if (c) c.u = now; }
+  lastIds = { e: ce, c: cc };
+}
+let prefT = null;
+function persist() {
   const raw = JSON.stringify(S);
   try { localStorage.setItem(KEY, raw); } catch (e) { memStore = raw; }
+  const P = plug('Preferences');
+  if (P) { clearTimeout(prefT); prefT = setTimeout(() => P.set({ key: KEY, value: JSON.stringify(S) }).catch(() => { }), 250); }
   IDX = null;
 }
+function save() {
+  trackDeletes();
+  S.mt = Date.now();
+  persist();
+  schedulePush();
+  if (NATIVE) scheduleEvening();
+}
+// Replacing the whole state (restore, example data, reset) must not tombstone the old items.
+function replaceState(next) { S = next; lastIds = null; trackDeletes(); persist(); }
 const activeCats = () => S.cats.filter(c => !c.archived);
 const catById = id => S.cats.find(c => c.id === id);
 const catName = id => (catById(id) || { name: 'Catégorie supprimée' }).name;
@@ -662,15 +797,15 @@ function elapsed(t, now = Date.now()) {
 function startTimer(mode, c, durMin) {
   unlockAudio();
   S.timer = { mode, c, segs: [], runStart: Date.now(), dur: durMin ? durMin * 60000 : 0, started: Date.now() };
-  save(); wakeOn(); tick(true);
+  save(); wakeOn(); tick(true); haptic('medium'); scheduleRoundNotif();
 }
 function pauseTimer() {
   const t = S.timer; if (!t || !t.runStart) return;
-  t.segs.push([t.runStart, Date.now()]); t.runStart = null; save(); wakeOff(); tick(true);
+  t.segs.push([t.runStart, Date.now()]); t.runStart = null; save(); wakeOff(); tick(true); haptic('light'); notifCancel([NOTIF_ROUND]);
 }
 function resumeTimer() {
   const t = S.timer; if (!t || t.runStart) return;
-  unlockAudio(); t.runStart = Date.now(); save(); wakeOn(); tick(true);
+  unlockAudio(); t.runStart = Date.now(); save(); wakeOn(); tick(true); haptic('light'); scheduleRoundNotif();
 }
 function finishTimer(opts = {}) {
   const t = S.timer; if (!t) return null;
@@ -678,7 +813,7 @@ function finishTimer(opts = {}) {
   if (t.runStart) { t.segs.push([t.runStart, end]); t.runStart = null; }
   let segs = t.segs;
   if (t.mode !== 'chrono' && t.dur) segs = trimSegs(segs, t.dur);
-  S.timer = null; wakeOff();
+  S.timer = null; wakeOff(); notifCancel([NOTIF_ROUND]);
   if (opts.discard || t.mode === 'break') { save(); tick(true); return null; }
   const total = segs.reduce((s, [a, b]) => s + b - a, 0);
   if (total < 60000) { save(); tick(true); if (!opts.silent) toast('Moins d\'une minute : session non enregistrée'); return null; }
@@ -686,7 +821,7 @@ function finishTimer(opts = {}) {
   for (const [d, ms] of splitSegs(segs)) {
     S.entries.push({ id: uid(), d, c: t.c, m: r1(ms / 60000), src: t.mode, t: Date.now(), s: segs[0][0], sid });
   }
-  save(); tick(true);
+  save(); tick(true); haptic('success');
   if (!opts.silent) toast(`${fmtDur(total / 60000)} ajoutées à ${catName(t.c)}`, () => { S.entries = S.entries.filter(e => e.sid !== sid); save(); render(); });
   return { sid, total, c: t.c, mode: t.mode, dur: t.dur };
 }
@@ -706,10 +841,16 @@ function checkTimer(fromBackground) {
 
 let wakeLock = null;
 async function wakeOn() {
-  if (!S.settings.wake || !('wakeLock' in navigator) || document.visibilityState !== 'visible') return;
+  if (!S.settings.wake) return;
+  const KA = plug('KeepAwake');
+  if (KA) { try { await KA.keepAwake(); } catch (e) { } return; }
+  if (!('wakeLock' in navigator) || document.visibilityState !== 'visible') return;
   try { wakeLock = await navigator.wakeLock.request('screen'); } catch (e) { wakeLock = null; }
 }
-function wakeOff() { try { if (wakeLock) wakeLock.release(); } catch (e) { } wakeLock = null; }
+function wakeOff() {
+  const KA = plug('KeepAwake'); if (KA) { KA.allowSleep().catch(() => { }); return; }
+  try { if (wakeLock) wakeLock.release(); } catch (e) { } wakeLock = null;
+}
 
 let AC = null;
 function unlockAudio() {
@@ -1096,7 +1237,7 @@ function viewToday() {
 
   // backup reminder
   const span = idx().first ? diffDays(idx().first, t) : 0;
-  if (!PREVIEW && span >= 7 && Date.now() - (S.settings.lastBackup || 0) > 14 * 86400000) {
+  if (!PREVIEW && !session && span >= 7 && Date.now() - (S.settings.lastBackup || 0) > 14 * 86400000) {
     v.append(h('button', { class: 'warnline', onclick: () => exportJSON() }, h('span', null, '⤓'), h('span', null, h('b', null, 'Sauvegarde tes données. '), S.settings.lastBackup ? 'Dernière sauvegarde il y a plus de 14 jours.' : 'Aucune sauvegarde pour l\'instant, un seul fichier suffit.')));
   }
 
@@ -1146,6 +1287,7 @@ function entryRow(e, withDate) {
 
 function addEntry(c, minutes, d, src = 'manual', note) {
   const e = { id: uid(), d: d || today(), c, m: r1(minutes), src, t: Date.now() };
+  haptic('light');
   if (note) e.note = note;
   S.entries.push(e); save();
   toast(`${fmtDur(minutes)} ajoutées à ${catName(c)}${e.d !== today() ? ' (' + fmtDate(e.d) + ')' : ''}`, () => { S.entries = S.entries.filter(x => x.id !== e.id); save(); render(); });
@@ -1182,7 +1324,7 @@ function editEntry(e) {
       h('label', { class: 'field' }, h('span', null, 'Note'), note),
       h('div', { class: 'btns' },
         h('button', { class: 'btn danger', onclick: () => { close(); const copy = S.entries.slice(); S.entries = S.entries.filter(x => x.id !== e.id); save(); render(); toast('Session supprimée', () => { S.entries = copy; save(); render(); }); } }, 'Supprimer'),
-        h('button', { class: 'btn primary', onclick: () => { const mn = di.get(); if (mn <= 0) { toast('Indique une durée'); return; } e.c = cat; e.m = mn; e.d = date.value || e.d; const n = note.value.trim(); if (n) e.note = n; else delete e.note; save(); close(); render(); toast('Session modifiée'); } }, 'Enregistrer')),
+        h('button', { class: 'btn primary', onclick: () => { const mn = di.get(); if (mn <= 0) { toast('Indique une durée'); return; } e.c = cat; e.m = mn; e.d = date.value || e.d; e.u = Date.now(); const n = note.value.trim(); if (n) e.note = n; else delete e.note; save(); close(); render(); toast('Session modifiée'); } }, 'Enregistrer')),
     ];
   });
 }
@@ -1587,6 +1729,7 @@ function viewSettings() {
   const v = h('div', { class: 'view' });
   const st = S.settings;
   v.append(h('h1', { class: 'page-title' }, 'Réglages'));
+  const acct = accountSection(); if (acct) v.append(acct);
   // goals
   const goalVal = h('span', { class: 'val' }, fmtDur(st.goal));
   v.append(h('section', { class: 'sec' }, h('div', { class: 'sec-h' }, h('h2', null, 'Objectif')),
@@ -1619,6 +1762,7 @@ function viewSettings() {
       inp.addEventListener('change', () => { const arr = st.grades.slice(); arr[i] = clamp(parseInt(inp.value, 10) || 0, 1, 300); for (let j = 1; j < 4; j++) if (arr[j] > arr[j - 1]) { toast('Les seuils doivent décroître de S à C'); inp.value = st.grades[i]; return; } st.grades = arr; save(); });
       return h('div', { class: 'opt' }, h('div', { style: 'display:flex;align-items:center;gap:12px' }, gradeBadge(g), h('span', { class: 'opt-t' }, 'à partir de')), h('div', { class: 'dur-in' }, inp, h('span', null, '%')));
     }), h('div', { class: 'opt' }, h('div', { style: 'display:flex;align-items:center;gap:12px' }, gradeBadge('D'), h('span', { class: 'opt-t' }, 'en dessous de C'))))));
+  const rem = remindersSection(); if (rem) v.append(rem);
   // appearance
   v.append(h('section', { class: 'sec' }, h('div', { class: 'sec-h' }, h('h2', null, 'Apparence')),
     h('div', { class: 'seg' }, [['auto', 'Auto'], ['dark', 'Sombre'], ['light', 'Clair']].map(([k, l]) => h('button', { class: st.theme === k ? 'on' : '', onclick: () => { st.theme = k; save(); applyTheme(); render(); } }, l)))));
@@ -1630,11 +1774,34 @@ function viewSettings() {
       setRow('Restaurer une sauvegarde', 'Remplace les données de l\'app', importJSON),
       setRow('Exporter pour Excel', 'Un CSV avec une ligne par jour et une colonne par catégorie', exportCSV),
       setRow('Importer depuis Notes ou Excel', 'Colle ton tableau, l\'app reconnaît dates et durées', importTable),
-      setRow('Charger une démo', 'Remplace tout par 10 semaines d\'exemple', () => confirmSheet('Charger la démo ?', 'Tes données actuelles seront remplacées. Fais une sauvegarde avant si besoin.', 'Charger la démo', loadDemo, true)),
-      setRow('Tout effacer', 'Supprime catégories et sessions', () => confirmSheet('Tout effacer ?', 'Cette action est définitive. Sauvegarde d\'abord si tu veux pouvoir revenir en arrière.', 'Tout effacer', () => { S = defaults(); save(); applyTheme(); TAB = 'today'; render(); onboarding(); }, true), true)),
-    h('p', { class: 'note' }, 'Tes données restent sur ce téléphone, dans l\'app installée sur l\'écran d\'accueil. Elles ne sont pas partagées avec Safari : utilise toujours l\'icône. Supprimer l\'icône efface les données, d\'où l\'intérêt d\'une sauvegarde régulière.')));
-  v.append(h('p', { class: 'note', style: 'text-align:center' }, `Outperf ${VERSION}`));
+      session ? null : setRow('Charger des données d\'exemple', 'Remplace tout par 10 semaines d\'exemple', () => confirmSheet('Charger l\'exemple ?', 'Tes données actuelles seront remplacées. Fais une sauvegarde avant si besoin.', 'Charger l\'exemple', loadDemo, true)),
+      setRow('Tout effacer', session ? 'Efface cet iPhone et te déconnecte' : 'Supprime catégories et sessions', () => confirmSheet('Tout effacer ?', session ? 'Les données de cet iPhone seront effacées et tu seras déconnecté. Ce qui est sauvegardé dans ton compte reste disponible.' : 'Cette action est définitive. Sauvegarde d\'abord si tu veux pouvoir revenir en arrière.', 'Tout effacer', async () => { if (session) await cloudSignOut(); replaceState(defaults()); applyTheme(); TAB = 'today'; render(); onboarding(); }, true), true)),
+    h('p', { class: 'note' }, NATIVE
+      ? (session ? 'Tes heures sont enregistrées sur cet iPhone et sauvegardées dans ton compte.' : 'Tes heures sont enregistrées uniquement sur cet iPhone. Crée un compte ou fais une sauvegarde régulière pour ne rien perdre.')
+      : 'Tes données restent sur ce téléphone, dans l\'app installée sur l\'écran d\'accueil. Elles ne sont pas partagées avec Safari : utilise toujours l\'icône. Supprimer l\'icône efface les données, d\'où l\'intérêt d\'une sauvegarde régulière.')));
+  v.append(aboutSection());
   return v;
+}
+function remindersSection() {
+  if (!NATIVE) return null;
+  const st = S.settings;
+  const sel = h('select', { class: 'input', style: 'width:104px', 'aria-label': 'Heure du rappel', disabled: st.remind ? null : true },
+    Array.from({ length: 13 }, (_, i) => 17 * 60 + i * 30).map(m => h('option', { value: m }, `${Math.floor(m / 60)} h ${pad2(m % 60)}`)));
+  sel.value = st.remindAt;
+  sel.addEventListener('change', () => { st.remindAt = +sel.value; save(); scheduleEvening(0); });
+  return h('section', { class: 'sec' }, h('div', { class: 'sec-h' }, h('h2', null, 'Rappels')),
+    h('div', { class: 'list opts' },
+      h('div', { class: 'opt' }, h('div', null, h('div', { class: 'opt-t' }, 'Rappel du soir'), h('div', { class: 'opt-s' }, 'Seulement si l\'objectif du jour n\'est pas atteint')),
+        toggle(st.remind, async v => { if (v && !(await notifAllowed(true))) { toast('Autorise les notifications d\'Outperf dans les Réglages de l\'iPhone'); st.remind = false; render(); return; } st.remind = v; save(); scheduleEvening(0); render(); }, 'Rappel du soir')),
+      h('div', { class: 'opt' }, h('div', { class: 'opt-t' }, 'Heure'), sel)));
+}
+function aboutSection() {
+  const rows = [];
+  if (CFG.privacyUrl) rows.push(setRow('Politique de confidentialité', 'Ce que l\'app stocke et pourquoi', () => openLink(CFG.privacyUrl)));
+  if (CFG.termsUrl) rows.push(setRow('Conditions d\'utilisation', 'Les règles d\'utilisation d\'Outperf', () => openLink(CFG.termsUrl)));
+  if (CFG.supportUrl) rows.push(setRow('Aide et contact', CFG.contactEmail || 'Une question, un bug, une idée', () => openLink(CFG.supportUrl)));
+  return h('section', { class: 'sec' }, h('div', { class: 'sec-h' }, h('h2', null, 'À propos')), rows.length ? h('div', { class: 'list' }, rows) : null,
+    h('p', { class: 'note', style: 'text-align:center' }, `Outperf ${VERSION}`));
 }
 function setRow(t, s, fn, danger) {
   return h('button', { class: 'row', onclick: fn }, h('span', { class: 'row-main' }, h('span', { class: 'row-t', style: danger ? 'color:var(--bad-ink)' : '' }, t), h('span', { class: 'row-s' }, s)), h('span', { class: 'chev' }, icon('chev', 18)));
@@ -1672,11 +1839,12 @@ function editCat(c) {
         if (!nm) { toast('Donne un nom à la catégorie'); name.focus(); return; }
         if (S.cats.some(x => x.id !== cat.id && x.name.toLowerCase() === nm.toLowerCase())) { toast('Ce nom existe déjà'); return; }
         cat.name = nm.slice(0, 40);
+        cat.u = Date.now();
         if (isNew) S.cats.push(cat); else Object.assign(c, cat);
         save(); close(); render(); toast(isNew ? 'Catégorie créée' : 'Catégorie modifiée');
       } }, isNew ? 'Créer la catégorie' : 'Enregistrer'),
       !isNew ? h('div', { class: 'btns' },
-        h('button', { class: 'btn', onclick: () => { c.archived = !c.archived; save(); close(); render(); toast(c.archived ? 'Catégorie archivée' : 'Catégorie réactivée'); } }, c.archived ? 'Réactiver' : 'Archiver'),
+        h('button', { class: 'btn', onclick: () => { c.archived = !c.archived; c.u = Date.now(); save(); close(); render(); toast(c.archived ? 'Catégorie archivée' : 'Catégorie réactivée'); } }, c.archived ? 'Réactiver' : 'Archiver'),
         h('button', { class: 'btn danger', onclick: () => { close(); confirmSheet('Supprimer la catégorie ?', n ? `Ses ${n} session${n > 1 ? 's' : ''} seront supprimées aussi. Pour garder l'historique, archive la plutôt.` : 'Elle n\'a aucune session enregistrée.', 'Supprimer', () => { S.cats = S.cats.filter(x => x.id !== c.id); S.entries = S.entries.filter(e => e.c !== c.id); if (S.timer && S.timer.c === c.id) S.timer = null; save(); render(); toast('Catégorie supprimée'); }, true); } }, 'Supprimer')) : null,
       !isNew ? h('p', { class: 'note' }, 'Archiver cache la catégorie des boutons mais garde ses heures dans les stats.') : null,
     ];
@@ -1686,6 +1854,14 @@ function editCat(c) {
 /* ---------- import / export */
 async function shareText(name, mime, text) {
   if (PREVIEW) { toast('Disponible dans l\'app installée sur ton écran d\'accueil'); return false; }
+  const FS = plug('Filesystem'), SH = plug('Share');
+  if (FS && SH) {
+    try {
+      const w = await FS.writeFile({ path: name, data: text, directory: 'CACHE', encoding: 'utf8' });
+      await SH.share({ title: name, files: [w.uri] });
+      return true;
+    } catch (e) { if (/cancel/i.test(String(e && e.message))) return false; toast('Export impossible. Réessaie.'); return false; }
+  }
   const blob = new Blob([text], { type: mime });
   try {
     const file = new File([blob], name, { type: mime });
@@ -1699,7 +1875,7 @@ async function shareText(name, mime, text) {
   } catch (e) { toast('Export impossible ici'); return false; }
 }
 async function exportJSON() {
-  const ok = await shareText(`outperf-sauvegarde-${today()}.json`, 'application/json', JSON.stringify({ app: 'outperf', v: 1, exported: new Date().toISOString(), data: S }));
+  const ok = await shareText(`outperf-sauvegarde-${today()}.json`, 'application/json', JSON.stringify({ app: 'outperf', v: 1, exported: new Date().toISOString(), data: docOf(S) }));
   if (ok) { S.settings.lastBackup = Date.now(); save(); render(); toast('Sauvegarde créée'); }
 }
 function pickFile(accept, cb) {
@@ -1712,7 +1888,7 @@ function importJSON() {
     let o; try { o = JSON.parse(txt); } catch (e) { toast('Fichier illisible'); return; }
     const data = o && o.data ? o.data : o;
     if (!data || !Array.isArray(data.cats) || !Array.isArray(data.entries)) { toast('Ce fichier n\'est pas une sauvegarde Outperf'); return; }
-    confirmSheet('Restaurer cette sauvegarde ?', `${data.cats.length} catégories et ${data.entries.length} sessions remplaceront tes données actuelles.`, 'Restaurer', () => { S = normalize(data); S.settings.onboarded = true; save(); applyTheme(); render(); toast('Sauvegarde restaurée'); });
+    confirmSheet('Restaurer cette sauvegarde ?', `${data.cats.length} catégories et ${data.entries.length} sessions remplaceront tes données actuelles.`, 'Restaurer', () => { const keep = S.timer; replaceState(Object.assign(normalize(data), { timer: keep })); S.settings.onboarded = true; S.demo = false; save(); applyTheme(); render(); toast('Sauvegarde restaurée'); });
   });
 }
 function exportCSV() {
@@ -1838,7 +2014,7 @@ function importTable() {
 /* ---------- demo */
 function loadDemo(silent) {
   const keep = S.settings;
-  S = defaults(); S.settings = Object.assign(keep, { onboarded: true });
+  replaceState(defaults()); S.settings = Object.assign(keep, { onboarded: true }); S.demo = true;
   SUGGESTIONS.slice(0, DEFAULT_PICK).forEach(([n, c, wg]) => S.cats.push(makeCat(n, c, wg)));
   let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   const t = today(), base = [150, 90, 35, 25, 30, 30, 60];
@@ -1859,39 +2035,299 @@ function loadDemo(silent) {
 function onboarding() {
   const picked = new Set(SUGGESTIONS.slice(0, DEFAULT_PICK).map(s => s[0]));
   const custom = [];
-  let goal = S.settings.goal;
-  const ov = h('div', { class: 'onb' });
+  let goal = S.settings.goal, step = 0;
+  const ov = h('div', { class: 'onb', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Bienvenue' });
+  const finishSetup = () => {
+    const names = SUGGESTIONS.filter(s => picked.has(s[0])).map(s => [s[0], s[1], s[2]]).concat(custom.map(n => [n, true, 0]));
+    if (!names.length) { toast('Choisis au moins une catégorie'); return false; }
+    if (!S.cats.length) names.forEach(([n, c, wg]) => S.cats.push(makeCat(n, c, wg)));
+    S.settings.goal = goal; save();
+    return true;
+  };
+  const done = () => { S.settings.onboarded = true; save(); ov.remove(); render(); haptic('success'); };
+  const next = () => {
+    step++;
+    if (step === 2 && !NATIVE) step++;
+    if (step === 3 && !cloudOn()) step++;
+    if (step > 3) { done(); return; }
+    draw(); ov.scrollTop = 0;
+  };
+  const dots = () => h('div', { class: 'onb-dots', 'aria-hidden': 'true' }, [0, 1, 2, 3].filter(i => (i !== 2 || NATIVE) && (i !== 3 || cloudOn())).map(i => h('i', { class: i === step ? 'on' : '' })));
   const draw = () => {
-    const list = h('div', { class: 'list' }, SUGGESTIONS.map(([n, c]) => h('button', { class: 'pick' + (picked.has(n) ? ' on' : ''), 'aria-pressed': picked.has(n) ? 'true' : 'false', onclick: () => { picked.has(n) ? picked.delete(n) : picked.add(n); draw(); } },
-      h('span', { class: 'ck' }, icon('check')), h('span', { class: 'row-main' }, h('span', { class: 'row-t' }, n), !c ? h('span', { class: 'row-s' }, 'suivi, hors travail') : null))),
-      custom.map((n, i) => h('button', { class: 'pick on', onclick: () => { custom.splice(i, 1); draw(); } }, h('span', { class: 'ck' }, icon('check')), h('span', { class: 'row-main' }, h('span', { class: 'row-t' }, n)))));
-    const inp = h('input', { class: 'input', type: 'text', maxlength: 40, placeholder: 'Ta catégorie perso' });
-    const addC = () => { const n = inp.value.trim(); if (n && !custom.includes(n) && !SUGGESTIONS.some(s => s[0].toLowerCase() === n.toLowerCase())) { custom.push(n); draw(); } else if (n) { picked.add(SUGGESTIONS.find(s => s[0].toLowerCase() === n.toLowerCase())[0]); draw(); } };
-    inp.addEventListener('keydown', e => { if (e.key === 'Enter') addC(); });
-    const gv = h('span', { class: 'val' }, fmtDur(goal));
-    ov.replaceChildren(h('div', { class: 'onb-in' },
-      h('div', { class: 'mark', html: markSVG(40) }),
-      h('h1', null, 'Bats ton toi d\'hier.'),
-      h('p', { class: 'lead' }, 'Note tes heures en deux touches ou lance un chrono. Chaque jour, l\'app te compare à la veille, à la semaine dernière et au mois dernier.'),
-      h('div', { class: 'sec' }, h('div', { class: 'sec-h' }, h('h2', null, 'Tes catégories'), h('p', null, 'modifiables plus tard')), list,
-        h('div', { class: 'btns' }, inp, h('button', { class: 'btn sm', style: 'flex:none;height:48px', onclick: addC }, 'Ajouter'))),
-      h('div', { class: 'sec' }, h('div', { class: 'sec-h' }, h('h2', null, 'Ton objectif par jour')),
-        h('div', { class: 'card', style: 'display:flex;align-items:center;justify-content:space-between' }, h('span', { class: 'muted small' }, 'Heures de travail visées'),
-          h('div', { class: 'stepper' }, h('button', { class: 'icon-btn', 'aria-label': 'Moins 30 minutes', onclick: () => { goal = Math.max(30, goal - 30); gv.textContent = fmtDur(goal); } }, icon('minus')), gv, h('button', { class: 'icon-btn', 'aria-label': 'Plus 30 minutes', onclick: () => { goal = Math.min(960, goal + 30); gv.textContent = fmtDur(goal); } }, icon('plus'))))),
-      h('button', { class: 'btn primary wide', style: 'height:56px', onclick: () => {
-        const names = SUGGESTIONS.filter(s => picked.has(s[0])).map(s => [s[0], s[1], s[2]]).concat(custom.map(n => [n, true, 0]));
-        if (!names.length) { toast('Choisis au moins une catégorie'); return; }
-        names.forEach(([n, c, wg]) => S.cats.push(makeCat(n, c, wg)));
-        S.settings.goal = goal; S.settings.onboarded = true; save(); ov.remove(); render();
-      } }, 'C\'est parti'),
-      h('button', { class: 'btn wide', style: 'background:none;color:var(--muted)', onclick: () => { ov.remove(); loadDemo(); } }, 'Explorer d\'abord avec des données de démo'),
-      h('button', { class: 'btn wide', style: 'background:none;color:var(--muted);margin-top:-14px', onclick: () => { S.settings.onboarded = true; save(); ov.remove(); render(); setTimeout(importTable, 50); } }, 'Importer mon tableau depuis Notes')));
+    let body;
+    if (step === 0) {
+      body = [
+        h('div', { class: 'mark', html: markSVG(40) }),
+        h('h1', null, 'Bats ton toi d\'hier.'),
+        h('p', { class: 'lead' }, 'Outperf mesure chaque heure de travail pour que tu voies, jour après jour, si tu avances vraiment.'),
+        h('ul', { class: 'perks' },
+          h('li', null, h('b', null, 'Chrono et rounds. '), 'Lance une session en une touche, le temps va dans la bonne catégorie.'),
+          h('li', null, h('b', null, 'Toi contre toi. '), 'Chaque jour comparé à la veille, chaque semaine à la précédente.'),
+          h('li', null, h('b', null, 'Discipline visible. '), 'Note du jour, séries, calendrier de régularité et stats détaillées.')),
+        h('button', { class: 'btn primary wide', style: 'height:56px', onclick: next }, 'Commencer'),
+      ];
+    } else if (step === 1) {
+      const list = h('div', { class: 'list' }, SUGGESTIONS.map(([n, c]) => h('button', { class: 'pick' + (picked.has(n) ? ' on' : ''), 'aria-pressed': picked.has(n) ? 'true' : 'false', onclick: () => { picked.has(n) ? picked.delete(n) : picked.add(n); draw(); } },
+        h('span', { class: 'ck' }, icon('check')), h('span', { class: 'row-main' }, h('span', { class: 'row-t' }, n), !c ? h('span', { class: 'row-s' }, 'suivi, hors travail') : null))),
+        custom.map((n, i) => h('button', { class: 'pick on', onclick: () => { custom.splice(i, 1); draw(); } }, h('span', { class: 'ck' }, icon('check')), h('span', { class: 'row-main' }, h('span', { class: 'row-t' }, n)))));
+      const inp = h('input', { class: 'input', type: 'text', maxlength: 40, placeholder: 'Ta catégorie perso' });
+      const addC = () => { const n = inp.value.trim(); if (n && !custom.includes(n) && !SUGGESTIONS.some(s => s[0].toLowerCase() === n.toLowerCase())) { custom.push(n); draw(); } else if (n) { picked.add(SUGGESTIONS.find(s => s[0].toLowerCase() === n.toLowerCase())[0]); draw(); } };
+      inp.addEventListener('keydown', e => { if (e.key === 'Enter') addC(); });
+      const gv = h('span', { class: 'val' }, fmtDur(goal));
+      body = [
+        h('h1', { class: 'onb-h2' }, 'Sur quoi tu bosses ?'),
+        h('div', { class: 'sec' }, h('div', { class: 'sec-h' }, h('h2', null, 'Tes catégories'), h('p', null, 'modifiables plus tard')), list,
+          h('div', { class: 'btns' }, inp, h('button', { class: 'btn sm', style: 'flex:none;height:48px', onclick: addC }, 'Ajouter'))),
+        h('div', { class: 'sec' }, h('div', { class: 'sec-h' }, h('h2', null, 'Ton objectif par jour')),
+          h('div', { class: 'card', style: 'display:flex;align-items:center;justify-content:space-between;gap:12px' }, h('span', { class: 'muted small' }, 'Heures de travail visées'),
+            h('div', { class: 'stepper' }, h('button', { class: 'icon-btn', 'aria-label': 'Moins 30 minutes', onclick: () => { goal = Math.max(30, goal - 30); gv.textContent = fmtDur(goal); } }, icon('minus')), gv, h('button', { class: 'icon-btn', 'aria-label': 'Plus 30 minutes', onclick: () => { goal = Math.min(960, goal + 30); gv.textContent = fmtDur(goal); } }, icon('plus'))))),
+        h('button', { class: 'btn primary wide', style: 'height:56px', onclick: () => { if (finishSetup()) next(); } }, 'Continuer'),
+        h('button', { class: 'btn wide', style: 'background:none;color:var(--muted)', onclick: () => { S.settings.onboarded = true; replaceState(S); ov.remove(); loadDemo(); } }, 'Explorer d\'abord avec des données d\'exemple'),
+        h('button', { class: 'btn wide', style: 'background:none;color:var(--muted);margin-top:-14px', onclick: () => { S.settings.onboarded = true; save(); ov.remove(); render(); setTimeout(importTable, 50); } }, 'Importer un tableau existant'),
+      ];
+    } else if (step === 2) {
+      body = [
+        h('h1', { class: 'onb-h2' }, 'Ne casse jamais ta série.'),
+        h('p', { class: 'lead' }, 'Un rappel chaque soir à 21 h si tu n\'as pas encore atteint ton objectif, avec ce qu\'il te manque pour battre ton toi d\'hier. Tu peux changer l\'heure dans Réglages.'),
+        h('button', { class: 'btn primary wide', style: 'height:56px', onclick: async () => { const ok = await notifAllowed(true); S.settings.remind = ok; save(); if (ok) scheduleEvening(0); next(); } }, 'Activer le rappel du soir'),
+        h('button', { class: 'btn wide', style: 'background:none;color:var(--muted)', onclick: next }, 'Plus tard'),
+      ];
+    } else {
+      body = [
+        h('h1', { class: 'onb-h2' }, 'Garde ton historique en sécurité.'),
+        h('p', { class: 'lead' }, 'Avec un compte gratuit, tes heures sont sauvegardées et te suivent sur un nouvel iPhone. Sans compte, elles restent uniquement sur cet appareil.'),
+        h('button', { class: 'btn primary wide', style: 'height:56px', onclick: () => { done(); authSheet('signup'); } }, 'Créer un compte'),
+        h('button', { class: 'btn wide', onclick: () => { done(); authSheet('signin'); } }, 'J\'ai déjà un compte'),
+        h('button', { class: 'btn wide', style: 'background:none;color:var(--muted)', onclick: done }, 'Continuer sans compte'),
+      ];
+    }
+    ov.replaceChildren(h('div', { class: 'onb-in' }, step > 0 ? dots() : null, ...body));
   };
   draw();
   document.body.append(ov);
 }
 function markSVG(size) {
   return `<svg width="${size}" height="${size}" viewBox="0 0 64 64" aria-hidden="true"><rect x="12" y="26" width="16" height="28" rx="5" fill="rgba(127,137,158,.18)" stroke="#7F899E" stroke-width="2.5"/><rect x="36" y="10" width="16" height="44" rx="5" fill="#FFB21E"/></svg>`;
+}
+
+/* ================= optional account: Supabase auth + cloud sync ================= */
+let sb = null, session = null, pushT = null;
+const sync = { busy: false, last: 0, error: '' };
+const cloudOn = () => !!sb;
+const userEmail = () => (session && session.user && session.user.email) || '';
+const authStorage = {
+  getItem: async k => { const P = plug('Preferences'); if (P) { try { return (await P.get({ key: k })).value; } catch (e) { return null; } } try { return localStorage.getItem(k); } catch (e) { return null; } },
+  setItem: async (k, v) => { const P = plug('Preferences'); if (P) { try { await P.set({ key: k, value: v }); } catch (e) { } return; } try { localStorage.setItem(k, v); } catch (e) { } },
+  removeItem: async k => { const P = plug('Preferences'); if (P) { try { await P.remove({ key: k }); } catch (e) { } return; } try { localStorage.removeItem(k); } catch (e) { } },
+};
+async function cloudInit() {
+  if (!CFG.supabaseUrl || !CFG.supabaseAnonKey || !window.supabase || PREVIEW) return;
+  try {
+    sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey, { auth: { storage: authStorage, persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } });
+    sb.auth.onAuthStateChange((ev, s) => { session = s; if (ev === 'SIGNED_OUT' && TAB === 'settings') render(); });
+    const { data } = await sb.auth.getSession();
+    session = data.session;
+    if (session) pull();
+  } catch (e) { sb = null; }
+}
+const AUTH_ERRORS = [
+  [/invalid login credentials/i, 'Email ou mot de passe incorrect.'],
+  [/already registered|already been registered|user already exists/i, 'Un compte existe déjà avec cet email. Connecte toi.'],
+  [/password should be at least|weak password/i, 'Mot de passe trop court : 8 caractères minimum.'],
+  [/unable to validate email|invalid email|email address .* is invalid/i, 'Adresse email invalide.'],
+  [/token has expired|otp.*(expired|invalid)|invalid.*(otp|token)/i, 'Code invalide ou expiré. Demande un nouveau code.'],
+  [/rate limit|too many/i, 'Trop de tentatives. Réessaie dans quelques minutes.'],
+  [/email not confirmed/i, 'Confirme ton email avec le lien reçu, puis connecte toi.'],
+  [/failed to fetch|network|load failed/i, 'Pas de connexion. Vérifie ton réseau et réessaie.'],
+];
+const authMsg = e => { const m = String((e && (e.message || e.error_description)) || e || ''); const f = AUTH_ERRORS.find(([re]) => re.test(m)); return f ? f[1] : 'Une erreur est survenue. Réessaie.'; };
+function dropDemo() { if (S.demo) { S.entries = []; S.demo = false; replaceState(S); } }
+async function cloudSignUp(email, password) {
+  dropDemo();
+  const { data, error } = await sb.auth.signUp({ email, password });
+  if (error) throw error;
+  if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) throw new Error('already registered');
+  session = data.session;
+  if (!session) return 'confirm';
+  await pull(); return 'ok';
+}
+async function cloudSignIn(email, password) {
+  dropDemo();
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) throw error;
+  session = data.session; await pull();
+}
+async function cloudResetSend(email) { const { error } = await sb.auth.resetPasswordForEmail(email); if (error) throw error; }
+async function cloudResetVerify(email, code, password) {
+  const { data, error } = await sb.auth.verifyOtp({ email, token: code, type: 'recovery' });
+  if (error) throw error;
+  session = data.session;
+  const r = await sb.auth.updateUser({ password }); if (r.error) throw r.error;
+  await pull();
+}
+async function cloudSignOut() { clearTimeout(pushT); try { await sb.auth.signOut(); } catch (e) { } session = null; sync.last = 0; }
+async function cloudDeleteAccount() {
+  const { error } = await sb.rpc('delete_user'); if (error) throw error;
+  await cloudSignOut();
+}
+const docOf = st => ({ v: st.v, settings: st.settings, cats: st.cats, entries: st.entries, tomb: st.tomb, mt: st.mt });
+const LOCAL_ONLY = ['theme', 'wake', 'sound', 'remind', 'remindAt', 'lastBackup'];
+function mergeDocs(local, remote) {
+  const ts = x => (x && (x.u || x.t)) || 0;
+  const tomb = { e: Object.assign({}, remote.tomb.e), c: Object.assign({}, remote.tomb.c) };
+  for (const k of ['e', 'c']) for (const id in local.tomb[k]) tomb[k][id] = Math.max(tomb[k][id] || 0, local.tomb[k][id]);
+  const union = (a, b, tm) => {
+    const m = new Map(); a.forEach(x => m.set(x.id, x));
+    b.forEach(x => { const y = m.get(x.id); m.set(x.id, !y || ts(x) > ts(y) ? x : y); });
+    return [...m.values()].filter(x => !(tm[x.id] && tm[x.id] >= ts(x)));
+  };
+  const newer = (remote.mt || 0) > (local.mt || 0) ? remote : local, older = newer === remote ? local : remote;
+  const cats = union(newer.cats, older.cats, tomb.c);
+  const order = new Map(newer.cats.map((c, i) => [c.id, i]));
+  cats.sort((a, b) => (order.has(a.id) ? order.get(a.id) : 1e6) - (order.has(b.id) ? order.get(b.id) : 1e6));
+  const settings = Object.assign({}, newer.settings);
+  LOCAL_ONLY.forEach(k => { settings[k] = local.settings[k]; });
+  settings.onboarded = !!(local.settings.onboarded || remote.settings.onboarded);
+  let entries = union(local.entries, remote.entries, tomb.e);
+  // Same category created on two devices (for example during onboarding): keep one, move the sessions over.
+  const byName = new Map(), remap = {}, keepIds = new Set(remote.cats.map(c => c.id));
+  const kept = [];
+  for (const c of cats) {
+    const k = c.name.trim().toLowerCase(), prev = byName.get(k);
+    if (!prev) { byName.set(k, c); kept.push(c); continue; }
+    const winner = keepIds.has(prev.id) || !keepIds.has(c.id) ? prev : c, loser = winner === prev ? c : prev;
+    remap[loser.id] = winner.id; tomb.c[loser.id] = Date.now();
+    if (winner !== prev) { kept[kept.indexOf(prev)] = c; byName.set(k, c); }
+  }
+  if (Object.keys(remap).length) entries = entries.map(e => remap[e.c] ? Object.assign({}, e, { c: remap[e.c], u: Date.now() }) : e);
+  return Object.assign({}, local, { settings, cats: kept, entries, tomb, mt: Math.max(local.mt || 0, remote.mt || 0) });
+}
+async function pull() {
+  if (!sb || !session || sync.busy) return;
+  sync.busy = true; sync.error = '';
+  try {
+    const { data, error } = await sb.from('user_data').select('data, updated_at').eq('user_id', session.user.id).maybeSingle();
+    if (error) throw error;
+    if (data && data.data) {
+      const merged = mergeDocs(S, normalize(data.data));
+      merged.timer = S.timer;
+      replaceState(merged); applyTheme();
+    }
+    sync.busy = false;
+    await push();
+  } catch (e) { sync.error = authMsg(e); sync.busy = false; }
+  render();
+}
+async function push() {
+  if (!sb || !session) return;
+  sync.busy = true;
+  try {
+    const { error } = await sb.from('user_data').upsert({ user_id: session.user.id, data: docOf(S), updated_at: new Date().toISOString() });
+    if (error) throw error;
+    sync.last = Date.now(); sync.error = '';
+  } catch (e) { sync.error = authMsg(e); }
+  sync.busy = false;
+  if (TAB === 'settings') render();
+}
+function schedulePush() { if (!sb || !session) return; clearTimeout(pushT); pushT = setTimeout(push, 2500); }
+
+function authSheet(mode) {
+  openSheet(mode === 'signup' ? 'Créer ton compte' : 'Se connecter', close => {
+    const email = h('input', { class: 'input', type: 'email', autocomplete: 'email', inputmode: 'email', autocapitalize: 'off', spellcheck: 'false', placeholder: 'toi@exemple.com', id: 'auth-email' });
+    const pass = h('input', { class: 'input', type: 'password', autocomplete: mode === 'signup' ? 'new-password' : 'current-password', placeholder: mode === 'signup' ? '8 caractères minimum' : 'Ton mot de passe', id: 'auth-pass' });
+    const err = h('p', { class: 'form-err', role: 'alert' });
+    const btn = h('button', { class: 'btn primary wide' }, mode === 'signup' ? 'Créer mon compte' : 'Me connecter');
+    btn.addEventListener('click', async () => {
+      const em = email.value.trim(), pw = pass.value;
+      err.textContent = '';
+      if (!/^\S+@\S+\.\S+$/.test(em)) { err.textContent = 'Adresse email invalide.'; return; }
+      if (mode === 'signup' && pw.length < 8) { err.textContent = 'Mot de passe trop court : 8 caractères minimum.'; return; }
+      if (!pw) { err.textContent = 'Indique ton mot de passe.'; return; }
+      btn.disabled = true; btn.textContent = 'Un instant…';
+      try {
+        if (mode === 'signup') {
+          const r = await cloudSignUp(em, pw);
+          close(); haptic('success');
+          toast(r === 'confirm' ? 'Compte créé. Confirme ton email avec le lien reçu, puis connecte toi.' : 'Compte créé. Tes heures sont sauvegardées.');
+        } else { await cloudSignIn(em, pw); close(); haptic('success'); toast('Connecté. Tes heures sont synchronisées.'); }
+        render();
+      } catch (e) { err.textContent = authMsg(e); btn.disabled = false; btn.textContent = mode === 'signup' ? 'Créer mon compte' : 'Me connecter'; haptic('warning'); }
+    });
+    return [
+      h('p', { class: 'muted small' }, 'Ton compte sauvegarde tes catégories et tes heures, et les synchronise entre tes appareils. L\'app reste utilisable sans compte.'),
+      h('label', { class: 'field' }, h('span', null, 'Email'), email),
+      h('label', { class: 'field' }, h('span', null, 'Mot de passe'), pass),
+      err, btn,
+      mode === 'signup'
+        ? h('p', { class: 'note' }, 'En créant un compte, tu acceptes les ', h('button', { class: 'linkbtn', onclick: () => openLink(CFG.termsUrl) }, 'conditions d\'utilisation'), ' et la ', h('button', { class: 'linkbtn', onclick: () => openLink(CFG.privacyUrl) }, 'politique de confidentialité'), '.')
+        : h('button', { class: 'linkbtn', style: 'align-self:center', onclick: () => { close(); resetSheet(email.value.trim()); } }, 'Mot de passe oublié ?'),
+      h('button', { class: 'btn wide', style: 'background:none;color:var(--muted)', onclick: () => { close(); authSheet(mode === 'signup' ? 'signin' : 'signup'); } }, mode === 'signup' ? 'J\'ai déjà un compte' : 'Créer un compte'),
+    ];
+  });
+}
+function resetSheet(prefill) {
+  openSheet('Mot de passe oublié', close => {
+    const email = h('input', { class: 'input', type: 'email', autocomplete: 'email', inputmode: 'email', autocapitalize: 'off', value: prefill || '', placeholder: 'toi@exemple.com' });
+    const code = h('input', { class: 'input', type: 'text', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 10, placeholder: 'Code reçu par email' });
+    const pass = h('input', { class: 'input', type: 'password', autocomplete: 'new-password', placeholder: 'Nouveau mot de passe' });
+    const err = h('p', { class: 'form-err', role: 'alert' });
+    const step2 = h('div', { class: 'sheet-b', hidden: true }, h('label', { class: 'field' }, h('span', null, 'Code'), code), h('label', { class: 'field' }, h('span', null, 'Nouveau mot de passe'), pass));
+    const btn = h('button', { class: 'btn primary wide' }, 'Recevoir un code');
+    let sent = false;
+    btn.addEventListener('click', async () => {
+      err.textContent = '';
+      const em = email.value.trim();
+      if (!/^\S+@\S+\.\S+$/.test(em)) { err.textContent = 'Adresse email invalide.'; return; }
+      btn.disabled = true;
+      try {
+        if (!sent) { await cloudResetSend(em); sent = true; step2.hidden = false; btn.textContent = 'Changer le mot de passe'; toast('Code envoyé. Regarde tes emails.'); }
+        else {
+          if (pass.value.length < 8) { err.textContent = 'Mot de passe trop court : 8 caractères minimum.'; btn.disabled = false; return; }
+          await cloudResetVerify(em, code.value.trim(), pass.value); close(); haptic('success'); toast('Mot de passe changé. Tu es connecté.'); render();
+        }
+      } catch (e) { err.textContent = authMsg(e); haptic('warning'); }
+      btn.disabled = false;
+    });
+    return [h('p', { class: 'muted small' }, 'Indique ton email : tu recevras un code pour choisir un nouveau mot de passe.'), h('label', { class: 'field' }, h('span', null, 'Email'), email), step2, err, btn];
+  });
+}
+function deleteAccountSheet() {
+  openSheet('Supprimer ton compte', close => {
+    let wipe = false;
+    const err = h('p', { class: 'form-err', role: 'alert' });
+    const btn = h('button', { class: 'btn danger wide' }, 'Supprimer définitivement');
+    btn.addEventListener('click', async () => {
+      btn.disabled = true; err.textContent = '';
+      try {
+        await cloudDeleteAccount();
+        if (wipe) { replaceState(defaults()); applyTheme(); TAB = 'today'; }
+        close(); haptic('success'); render(); toast('Compte supprimé.');
+        if (wipe) onboarding();
+      } catch (e) { err.textContent = authMsg(e); btn.disabled = false; }
+    });
+    return [
+      h('p', null, `Ton compte ${userEmail()} et toutes les données sauvegardées dans le cloud seront supprimés tout de suite. Cette action est définitive.`),
+      h('div', { class: 'list opts' }, h('div', { class: 'opt' }, h('div', null, h('div', { class: 'opt-t' }, 'Effacer aussi cet iPhone'), h('div', { class: 'opt-s' }, 'Sinon tes heures restent sur cet appareil, sans compte')), toggle(false, v => { wipe = v; }, 'Effacer aussi cet iPhone'))),
+      err, btn,
+      h('button', { class: 'btn wide', onclick: close }, 'Annuler'),
+    ];
+  });
+}
+function accountSection() {
+  if (!cloudOn()) return null;
+  if (!session) {
+    return h('section', { class: 'sec' }, h('div', { class: 'sec-h' }, h('h2', null, 'Compte')),
+      h('div', { class: 'card acct' },
+        h('p', null, h('b', null, 'Ne perds jamais tes heures. '), 'Un compte gratuit sauvegarde ton historique et le synchronise sur tous tes appareils.'),
+        h('div', { class: 'btns' }, h('button', { class: 'btn primary', onclick: () => authSheet('signup') }, 'Créer un compte'), h('button', { class: 'btn', onclick: () => authSheet('signin') }, 'Se connecter'))));
+  }
+  const status = sync.busy ? 'Synchronisation…' : sync.error ? sync.error : sync.last ? `Synchronisé à ${hhmm(sync.last)}` : 'Synchronisation en attente';
+  return h('section', { class: 'sec' }, h('div', { class: 'sec-h' }, h('h2', null, 'Compte')),
+    h('div', { class: 'list' },
+      h('div', { class: 'row' }, h('span', { class: 'row-main' }, h('span', { class: 'row-t' }, userEmail()), h('span', { class: 'row-s', style: sync.error ? 'color:var(--bad-ink)' : '' }, status))),
+      setRow('Synchroniser maintenant', 'Envoie et récupère tes dernières heures', () => pull()),
+      setRow('Se déconnecter', 'Tes heures restent sur cet iPhone', () => confirmSheet('Se déconnecter ?', 'Tes heures restent sur cet iPhone. Reconnecte toi pour les synchroniser à nouveau.', 'Se déconnecter', async () => { await cloudSignOut(); render(); toast('Déconnecté'); })),
+      setRow('Supprimer mon compte', 'Efface ton compte et tes données dans le cloud', deleteAccountSheet, true)));
 }
 
 /* ================= shell ================= */
@@ -1903,7 +2339,7 @@ function render() {
   hideTip();
   const root = app();
   const view = TAB === 'today' ? viewToday() : TAB === 'chrono' ? viewChrono() : TAB === 'stats' ? viewStats() : TAB === 'journal' ? viewJournal() : viewSettings();
-  const pv = PREVIEW && TAB === 'today' ? h('div', { class: 'warnline', style: 'margin-bottom:14px' }, h('span', null, h('b', null, 'Aperçu avec des données d\'exemple. '), 'Pour suivre tes vraies heures, installe l\'app sur ton écran d\'accueil. ', h('button', { style: 'color:var(--tint);font-weight:650;font-size:14px', onclick: () => confirmSheet('Repartir de zéro ?', 'Les données d\'exemple seront effacées de cet aperçu.', 'Repartir de zéro', () => { S = defaults(); save(); render(); onboarding(); }) }, 'Repartir de zéro'))) : null;
+  const pv = (PREVIEW || S.demo) && TAB === 'today' ? h('div', { class: 'warnline', style: 'margin-bottom:14px' }, h('span', null, h('b', null, 'Données d\'exemple. '), PREVIEW ? 'Pour suivre tes vraies heures, installe l\'app sur ton écran d\'accueil. ' : 'Explore l\'app, puis repars de zéro pour suivre tes vraies heures. ', h('button', { style: 'color:var(--tint);font-weight:650;font-size:14px', onclick: () => confirmSheet('Repartir de zéro ?', 'Les données d\'exemple seront effacées.', 'Repartir de zéro', () => { replaceState(defaults()); applyTheme(); render(); onboarding(); }) }, 'Repartir de zéro'))) : null;
   root.replaceChildren(h('div', { class: 'app-in' }, ...[runBanner(), pv, view].filter(Boolean)));
   if (TAB === 'chrono') liveChrono();
   const nav = $('#tabs');
@@ -1930,6 +2366,7 @@ function applyTheme() {
   else { document.documentElement.setAttribute('data-theme', th); themeByApp = true; }
   const dark = th === 'dark' || (th === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
   const meta = $('meta[name="theme-color"]'); if (meta) meta.setAttribute('content', dark ? '#151A25' : '#FFFFFF');
+  setStatusBar(dark);
   fixBottomBand();
 }
 // iOS 26 home screen bug: with the old translucent status bar, the web view is cut short by the status bar
@@ -1949,7 +2386,9 @@ let lastW = innerWidth;
 addEventListener('resize', () => { fixBottomBand(); clearTimeout(rsT); rsT = setTimeout(() => { if (innerWidth !== lastW) { lastW = innerWidth; if (TAB === 'stats') { const y = app().scrollTop; render(); app().scrollTop = y; } } }, 150); });
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (TAB === 'stats') render(); });
 document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') { if (NATIVE) scheduleEveningNow(); if (session) { clearTimeout(pushT); push(); } return; }
   if (document.visibilityState === 'visible') {
+    if (session) pull();
     const before = S.timer;
     checkTimer(true);
     if (S.timer && S.timer.runStart) wakeOn();
@@ -1958,22 +2397,25 @@ document.addEventListener('visibilitychange', () => {
 });
 matchMedia('(prefers-color-scheme: dark)').addEventListener && matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { applyTheme(); if (TAB === 'stats') render(); });
 
-function init() {
-  S = load();
+async function init() {
+  replaceState(await load());
   applyTheme();
   lastDay = today();
   checkTimer(true);
   if (PREVIEW && !S.settings.onboarded && !S.entries.length) loadDemo(true);
   render();
-  if (!S.settings.onboarded) onboarding();
+  const SP = plug('SplashScreen'); if (SP) SP.hide().catch(() => { });
+  await cloudInit();
+  if (!S.settings.onboarded) onboarding(); else if (session) render();
   setInterval(() => tick(false), 1000);
-  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => { });
-  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost') && !location.hostname.endsWith('claude.ai') && !location.hostname.endsWith('claudeusercontent.com')) {
+  if (!NATIVE && navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => { });
+  if (!NATIVE && 'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost') && !location.hostname.endsWith('claude.ai') && !location.hostname.endsWith('claudeusercontent.com')) {
     navigator.serviceWorker.register('sw.js').catch(() => { });
   }
   if (S.timer && S.timer.runStart) wakeOn();
+  if (NATIVE) scheduleEvening(3000);
 }
-window.__op = { parseDuration, parseDate, parseTable, metrics: () => { computeLive(); return metrics(); }, splitSegs, get S() { return S; }, set S(v) { S = v; save(); render(); }, go, render, loadDemo, today, addDays, finishTimer, elapsed };
+window.__op = { mergeDocs, get session() { return session; }, get sync() { return sync; }, parseDuration, parseDate, parseTable, metrics: () => { computeLive(); return metrics(); }, splitSegs, get S() { return S; }, set S(v) { S = v; save(); render(); }, replaceState: v => { replaceState(v); render(); }, go, render, loadDemo, today, addDays, finishTimer, elapsed };
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
 

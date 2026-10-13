@@ -1,0 +1,25 @@
+{
+  "appId": "com.melvinchongvilay.outperf",
+  "appName": "Outperf",
+  "webDir": "www",
+  "backgroundColor": "#EDF0F5",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#EDF0F5",
+    "preferredContentMode": "mobile",
+    "limitsNavigationsToAppBoundDomains": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 800,
+      "launchAutoHide": true,
+      "backgroundColor": "#0B0F17",
+      "showSpinner": false
+    },
+    "Keyboard": {
+      "resize": "native",
+      "resizeOnFullScreen": true
+    },
+    "LocalNotifications": {}
+  }
+}

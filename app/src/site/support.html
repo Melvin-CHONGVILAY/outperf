@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Aide Outperf</title>
+<meta name="description" content="Aide et contact pour l'application Outperf">
+<style>
+:root{--bg:#EDF0F5;--panel:#fff;--ink:#0E1420;--ink-2:#414A5C;--muted:#677084;--line:#DDE2EA;--accent:#F5A300;--tint:#9C5E00;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#0B0F17;--panel:#151A25;--ink:#F2F4F8;--ink-2:#B3BACA;--muted:#7F899E;--line:#252C3B;--accent:#FFB21E;--tint:#FFBE3D;color-scheme:dark}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+main{max-width:720px;margin:0 auto;padding:max(28px,env(safe-area-inset-top)) 20px 64px}
+header{display:flex;align-items:center;gap:12px;margin-bottom:28px}header a{display:flex;align-items:center;gap:12px;color:var(--ink);text-decoration:none;font-weight:700;font-size:18px}
+.mk{width:40px;height:40px;border-radius:11px;background:#0B0F17;display:grid;place-items:center}
+h1{font-size:32px;line-height:1.15;letter-spacing:-.02em;margin:0 0 6px;text-wrap:balance}h2{font-size:20px;margin:32px 0 8px;letter-spacing:-.01em}
+p,li{color:var(--ink-2)}a{color:var(--tint)}.upd{color:var(--muted);font-size:14px;margin:0 0 24px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin:12px 0}
+.card h3{margin:0 0 6px;font-size:17px;color:var(--ink)}.card p{margin:0}
+footer{margin-top:48px;color:var(--muted);font-size:14px;display:flex;gap:16px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<main>
+<header><a href="./"><span class="mk"><svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><rect x="12" y="26" width="16" height="28" rx="5" fill="rgba(127,137,158,.18)" stroke="#7F899E" stroke-width="2.5"/><rect x="36" y="10" width="16" height="44" rx="5" fill="#FFB21E"/></svg></span>Outperf</a></header>
+<h1>Aide et contact</h1>
+<p class="upd">Une question, un bug, une idée de fonctionnalité ? Écris nous : {{CONTACT}}. Réponse sous 48 h en général.</p>
+
+<div class="card"><h3>Comment enregistrer mes heures ?</h3><p>Onglet Aujourd'hui : touche ▶ à côté d'une catégorie pour lancer le chrono, ou + pour ajouter une durée à la main. Onglet Chrono : choisis Minuteur pour travailler en rounds de 25, 50 ou 90 minutes.</p></div>
+<div class="card"><h3>Mes données sont elles sauvegardées ?</h3><p>Sans compte, elles restent uniquement sur ton iPhone : fais une sauvegarde depuis Réglages, Données, Sauvegarder. Avec un compte gratuit, elles sont sauvegardées et synchronisées automatiquement.</p></div>
+<div class="card"><h3>J'ai oublié mon mot de passe</h3><p>Écran de connexion, Mot de passe oublié : tu reçois un code par email pour en choisir un nouveau.</p></div>
+<div class="card"><h3>Comment supprimer mon compte ?</h3><p>Réglages, Compte, Supprimer mon compte. La suppression est immédiate et efface tes données sauvegardées.</p></div>
+<div class="card"><h3>Je ne reçois pas le rappel du soir</h3><p>Vérifie Réglages, Rappels dans l'app, puis les notifications d'Outperf dans les Réglages de l'iPhone. Le rappel ne s'affiche pas si ton objectif du jour est déjà atteint.</p></div>
+<div class="card"><h3>Que compte la note du jour ?</h3><p>La part de ton objectif journalier atteinte : S à partir de 130 %, A à partir de 100 %, B à 80 %, C à 50 %. Le barème se modifie dans Réglages.</p></div>
+<footer><a href="privacy.html">Confidentialité</a><a href="terms.html">Conditions d'utilisation</a><a href="support.html">Aide et contact</a></footer>
+</main>
+</body>
+</html>

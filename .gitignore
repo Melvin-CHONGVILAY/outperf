@@ -1,0 +1,9 @@
+app/node_modules/
+app/www/
+app/artifact/
+app/test/shots/
+app/ios/App/App/public/
+app/ios/App/build/
+app/ios/DerivedData/
+.DS_Store
+app/store/screenshots/raw/

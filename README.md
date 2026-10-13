@@ -1,6 +1,7 @@
 # Outperf
 
-Web app perso pour suivre ses heures de travail par catégorie, avec chrono, minuteur et un dashboard « toi contre toi d'hier ».
+Suivi du temps de travail : chrono et rounds, comparaison avec la veille, stats par jour, semaine et mois, calendrier de régularité.
 
-Installation sur iPhone : ouvrir le lien GitHub Pages dans Safari, puis Partager → Sur l'écran d'accueil.
-Les données restent sur le téléphone (stockage local de l'app). Pense à faire une sauvegarde depuis Réglages → Données.
+- Version web : https://melvin-chongvilay.github.io/outperf/
+- App iOS : voir [DEPLOIEMENT.md](DEPLOIEMENT.md)
+- Code : `app/src`, build : `cd app && npm ci && python3 build.py`

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Outperf</title>
+<meta name="description" content="Suis tes heures de travail, lance un chrono et bats ton toi d'hier.">
+<meta name="theme-color" content="#FFFFFF">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Outperf">
+<meta name="format-detection" content="telephone=no">
+<script>
+try {
+  var st = (JSON.parse(localStorage.getItem('outperf.v1') || '{}').settings) || {};
+  var th = st.theme || 'auto';
+  var dark = th === 'dark' || (th === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+  if (dark) {
+    document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]').setAttribute('content', 'black');
+    document.querySelector('meta[name="theme-color"]').setAttribute('content', '#151A25');
+  }
+} catch (e) {}
+</script>
+<!--WEBHEAD-->
+<style>
+/*CSS*/
+</style>
+</head>
+<body>
+<div class="shell">
+<div class="topsafe" aria-hidden="true"></div>
+<main id="app" class="app"></main>
+<nav id="tabs" class="tabbar" aria-label="Navigation"></nav>
+</div>
+<noscript><p style="padding:24px">Active JavaScript pour utiliser Outperf.</p></noscript>
+<script src="config.js"></script>
+<script src="vendor/supabase.js"></script>
+<script>
+/*JS*/
+</script>
+</body>
+</html>
