@@ -53,7 +53,7 @@ TES CATÉGORIES, TES RÈGLES
 Révisions, projets, prépa entretiens, lecture, sport : crée, renomme, colore et archive tes catégories. Choisis ce qui compte dans ton temps de travail et ce que tu veux seulement suivre.
 
 TES DONNÉES T'APPARTIENNENT
-L'app fonctionne entièrement sans compte. Si tu le souhaites, un compte gratuit sauvegarde ton historique et le synchronise entre tes appareils. Export Excel, sauvegarde en un fichier, import depuis tes notes. Pas de publicité, pas de pistage.
+Pas de compte à créer : tout reste sur ton iPhone. Export Excel, sauvegarde en un fichier, import depuis tes notes. Pas de publicité, pas de pistage.
 
 Outperf : moins d'excuses, plus d'heures.
 ```
@@ -61,7 +61,7 @@ Outperf : moins d'excuses, plus d'heures.
 ## Nouveautés de la version 1.0.0
 
 ```
-Première version d'Outperf : chrono et rounds, comparaison avec ton toi d'hier, stats par jour, semaine et mois, calendrier de régularité, rappel du soir et compte facultatif pour sauvegarder tes heures.
+Première version d'Outperf : chrono et rounds, comparaison avec ton toi d'hier, stats par jour, semaine et mois, calendrier de régularité et rappel du soir.
 ```
 
 ## Captures d'écran
@@ -70,29 +70,25 @@ Dossier `store/screenshots/` : 5 images 1320 × 2868 (iPhone 6,9 pouces), dans l
 
 ## Confidentialité de l'app (questionnaire App Store Connect)
 
-« Collectez-vous des données à partir de cette app ? » : **Oui** (uniquement si le compte est activé dans `config.js`).
+Version 1.0 (sans compte) : « Collectez-vous des données à partir de cette app ? » : **Non, nous ne collectons pas de données**. Tout reste sur l'appareil.
+
+Quand le compte sera activé (version suivante, `config.js` rempli), il faudra déclarer ces données ici et dans `app/ios/App/App/PrivacyInfo.xcprivacy` (clé `NSPrivacyCollectedDataTypes`, aujourd'hui vide) :
 
 | Type de donnée | Utilisation | Liée à l'utilisateur | Suivi (tracking) |
 |---|---|---|---|
 | Coordonnées : adresse e-mail | Fonctionnalités de l'app | Oui | Non |
 | Contenu utilisateur : autre contenu (catégories, sessions de travail) | Fonctionnalités de l'app | Oui | Non |
 
-Tout le reste : non collecté. Aucune donnée n'est utilisée pour le suivi.
-
 ## Informations pour la revue d'Apple (App Review)
 
 Champ « Notes » (en anglais, c'est plus rapide pour les reviewers) :
 
 ```
-Outperf is a work time tracker. The whole app works without an account: categories, timers and statistics are stored on the device.
+Outperf is a work time tracker. The app works entirely offline without any account: categories, timers and statistics are stored on the device only. No login is required.
 
-The account is optional and only used to back up and sync the user's data (Settings > Compte). Account deletion is available in the app: Settings > Compte > Supprimer mon compte, which deletes the account and all cloud data immediately.
+To see the statistics filled in quickly: on first launch, tap "Commencer", then "Explorer d'abord avec des données d'exemple" to load sample data.
 
-Demo account (already contains sample data):
-Email: REVIEW_EMAIL
-Password: REVIEW_PASSWORD
-
-Notifications are local only: end of a timer round, and an optional evening reminder the user enables in Settings > Rappels. No ads, no tracking, no third-party analytics.
+Notifications are local only: end of a timer round, and an optional evening reminder the user enables in Settings. No ads, no tracking, no third-party analytics, no data collection.
 ```
 
-Coche « Connexion requise » : **Non** (l'app est utilisable sans compte), mais renseigne quand même le compte de démo ci-dessus.
+Coche « Connexion requise » : **Non**.
