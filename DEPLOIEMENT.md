@@ -1,6 +1,6 @@
 # Mettre Outperf sur l'App Store
 
-Le code est prêt : app iOS native (Capacitor), compte facultatif, pages légales, pipeline de build sur GitHub, fiche App Store et captures. Il reste les étapes qui demandent tes accès. Compte environ 1 h 30 au total, hors délai de validation d'Apple.
+Le code est prêt : app iOS native (Capacitor) compilée et testée avec Xcode 27, compte facultatif, pages légales, fiche App Store et captures. Il reste les étapes qui demandent tes accès. Compte environ 1 h 30 au total, hors délai de validation d'Apple.
 
 ## Ce que contient le dépôt
 
@@ -39,25 +39,39 @@ Apple exige un moyen de te contacter. Crée une adresse dédiée (par exemple un
 
 Sans ces deux champs, l'app fonctionne quand même, simplement sans compte.
 
-## Étape 3. Apple, une fois ton compte développeur validé (20 min)
+## Étape 3. Apple, une fois ton compte développeur validé (15 min)
+
+1. **Xcode > Réglages > Comptes > + > Apple ID** : connecte le compte de ton abonnement développeur.
+2. Ouvre `app/ios/App/App.xcodeproj`. Projet **App** > cible **App** > **Signing & Capabilities** > **Team** : choisis ton équipe. Xcode crée seul l'identifiant `com.melvinchongvilay.outperf` et les certificats.
+3. **App Store Connect > Apps > + > Nouvelle app** : plateforme iOS, nom `Outperf : suivi du travail`, langue Français, Bundle ID `com.melvinchongvilay.outperf`, SKU `outperf-ios`, accès complet.
+
+## Étape 4. Compiler et envoyer depuis ton Mac (10 min, puis 20 min d'attente)
+
+Le projet a déjà été compilé et testé avec Xcode 27 sur le simulateur iOS 27 (iPhone 17e, iPhone 18 Pro, iPad).
+
+1. Pour repartir de la dernière version du code, dans le Terminal :
+   ```
+   cd ~/Documents && git clone https://github.com/Melvin-CHONGVILAY/outperf.git outperf-src
+   cd outperf-src/app && npm ci && python3 build.py && npx cap sync ios
+   open ios/App/App.xcodeproj
+   ```
+   (Node.js est nécessaire. Si `npm` est introuvable, installe la version LTS depuis nodejs.org.)
+2. Dans Xcode, en haut, choisis la destination **Any iOS Device (arm64)**, puis **Product > Archive**.
+3. La fenêtre **Organizer** s'ouvre : **Distribute App > App Store Connect > Distribute**. Xcode signe et envoie le build.
+4. Environ 15 minutes plus tard, le build apparaît dans **App Store Connect > TestFlight**. Installe **TestFlight** sur ton iPhone, ajoute toi comme testeur interne, teste l'app et crée le compte de démo pour Apple.
+
+Pour chaque nouvelle version : change **Version** (1.0.1, 1.1.0…) et augmente **Build** dans l'onglet **General** de la cible, puis archive à nouveau.
+
+## Variante : compiler depuis GitHub, sans ton Mac
 
 1. **developer.apple.com > Account > Membership details** : note ton **Team ID** (10 caractères).
-2. **Certificates, Identifiers & Profiles > Identifiers > +** : App IDs, App, description `Outperf`, Bundle ID **Explicit** `com.melvinchongvilay.outperf`. Aucune capacité à cocher.
-3. **App Store Connect > Apps > + > Nouvelle app** : plateforme iOS, nom `Outperf : suivi du travail`, langue Français, Bundle ID ci‑dessus, SKU `outperf-ios`, accès complet.
-4. **App Store Connect > Utilisateurs et accès > Intégrations > Clés API App Store Connect > +** : nom `GitHub`, accès **Admin** (nécessaire pour que GitHub crée lui même les certificats de signature). Télécharge le fichier `.p8` (une seule fois possible), note le **Key ID** et l'**Issuer ID**.
-
-## Étape 4. Compiler et envoyer depuis GitHub (5 min, puis 20 min d'attente)
-
-1. Sur GitHub, dépôt `outperf` > **Settings > Secrets and variables > Actions > New repository secret**, crée :
+2. **App Store Connect > Utilisateurs et accès > Intégrations > Clés API App Store Connect > +** : nom `GitHub`, accès **Admin** (nécessaire pour que GitHub crée lui même les certificats de signature). Télécharge le fichier `.p8` (une seule fois possible), note le **Key ID** et l'**Issuer ID**.
+3. Sur GitHub, dépôt `outperf` > **Settings > Secrets and variables > Actions > New repository secret**, crée :
    - `APPLE_TEAM_ID` : ton Team ID
    - `ASC_KEY_ID` : le Key ID
    - `ASC_ISSUER_ID` : l'Issuer ID
    - `ASC_KEY_P8` : tout le contenu du fichier `.p8`, lignes BEGIN et END comprises
-2. **Actions > iOS release > Run workflow**, version `1.0.0`. Le build tourne sur un Mac de GitHub (gratuit pour un dépôt public) avec Xcode 26, exigé par Apple depuis avril 2026.
-3. Environ 15 minutes plus tard, le build apparaît dans **App Store Connect > TestFlight** (Apple le traite encore 10 à 30 min).
-4. Installe **TestFlight** sur ton iPhone, ajoute toi comme testeur interne et teste l'app. Crée le compte de démo pour Apple.
-
-Pour chaque nouvelle version : relance le workflow avec un numéro plus grand (1.0.1, 1.1.0…). Le numéro de build s'incrémente tout seul.
+4. **Actions > iOS release > Run workflow**, version `1.0.0`. Le build tourne sur un Mac de GitHub (gratuit pour un dépôt public) et arrive dans TestFlight comme avec Xcode. Pour chaque nouvelle version, relance le workflow avec un numéro plus grand ; le numéro de build s'incrémente tout seul.
 
 ## Étape 5. Soumettre à Apple (30 min)
 
@@ -66,7 +80,7 @@ Dans App Store Connect, fiche de l'app, recopie `app/store/fiche-app-store.md` :
 - les 5 captures du dossier `app/store/screenshots` (section iPhone 6,9 pouces) ;
 - questionnaire de confidentialité et classification par âge ;
 - prix : gratuit, disponibilité : tous les pays (ou la France seulement pour commencer) ;
-- sélectionne le build envoyé par GitHub ;
+- sélectionne le build envoyé depuis Xcode (ou GitHub) ;
 - notes pour la revue avec le compte de démo.
 
 Puis **Ajouter pour vérification > Soumettre**. La revue prend en général 24 à 48 h.

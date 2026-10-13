@@ -75,6 +75,8 @@ const r1 = n => Math.round(n * 100) / 100;
 const CAP = window.Capacitor;
 const NATIVE = !!(CAP && typeof CAP.isNativePlatform === 'function' && CAP.isNativePlatform());
 const plug = n => (NATIVE && CAP.Plugins && CAP.Plugins[n]) || null;
+// The splash stays up until the first render (launchAutoHide is off); this is the safety net.
+if (NATIVE) setTimeout(() => { const sp = plug('SplashScreen'); if (sp) sp.hide().catch(() => { }); }, 4000);
 const CFG = Object.assign({ supabaseUrl: '', supabaseAnonKey: '', privacyUrl: '', termsUrl: '', supportUrl: '', contactEmail: '' }, window.OUTPERF_CONFIG || {});
 // Monetisation hook. Version 1 is entirely free; a later version gates chosen features behind isPro()
 // and an Apple in-app purchase (App Store guideline 3.1.1).
@@ -2015,7 +2017,7 @@ async function init() {
   checkTimer(true);
   if (PREVIEW && !S.settings.onboarded && !S.entries.length) loadDemo(true);
   render();
-  const SP = plug('SplashScreen'); if (SP) SP.hide().catch(() => { });
+  const SP = plug('SplashScreen'); if (SP) requestAnimationFrame(() => SP.hide({ fadeOutDuration: 250 }).catch(() => { }));
   await cloudInit();
   if (!S.settings.onboarded) onboarding(); else if (session) render();
   setInterval(() => tick(false), 1000);
