@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Outperf</title>
 <meta name="description" content="Suis tes heures de travail, lance un chrono et bats ton toi d'hier.">
-<meta name="theme-color" content="#EDF0F5">
+<meta name="theme-color" content="#FFFFFF">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -18,7 +18,7 @@ try {
   var dark = th === 'dark' || (th === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
   if (dark) {
     document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]').setAttribute('content', 'black');
-    document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0B0F17');
+    document.querySelector('meta[name="theme-color"]').setAttribute('content', '#151A25');
   }
 } catch (e) {}
 </script>
@@ -1929,11 +1929,24 @@ function applyTheme() {
   if (th === 'auto') { if (themeByApp) document.documentElement.removeAttribute('data-theme'); themeByApp = false; }
   else { document.documentElement.setAttribute('data-theme', th); themeByApp = true; }
   const dark = th === 'dark' || (th === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
-  const meta = $('meta[name="theme-color"]'); if (meta) meta.setAttribute('content', dark ? '#0B0F17' : '#EDF0F5');
+  const meta = $('meta[name="theme-color"]'); if (meta) meta.setAttribute('content', dark ? '#151A25' : '#FFFFFF');
+  fixBottomBand();
+}
+// iOS 26 home screen bug: with the old translucent status bar, the web view is cut short by the status bar
+// height and iOS paints the missing strip itself under the tab bar. That strip already holds the home
+// indicator, so the tab bar must not add its own bottom inset on top of it.
+function fixBottomBand() {
+  const root = document.documentElement;
+  root.style.removeProperty('--sab');
+  const standalone = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
+  const ts = $('.topsafe'); if (!standalone || !ts) return;
+  const sat = ts.getBoundingClientRect().height;
+  const portrait = innerHeight > innerWidth, screenH = portrait ? Math.max(screen.height, screen.width) : Math.min(screen.height, screen.width);
+  if (sat > 10 && innerHeight <= screenH - sat + 2) root.style.setProperty('--sab', '0px');
 }
 let rsT = null;
 let lastW = innerWidth;
-addEventListener('resize', () => { clearTimeout(rsT); rsT = setTimeout(() => { if (innerWidth !== lastW) { lastW = innerWidth; if (TAB === 'stats') { const y = app().scrollTop; render(); app().scrollTop = y; } } }, 150); });
+addEventListener('resize', () => { fixBottomBand(); clearTimeout(rsT); rsT = setTimeout(() => { if (innerWidth !== lastW) { lastW = innerWidth; if (TAB === 'stats') { const y = app().scrollTop; render(); app().scrollTop = y; } } }, 150); });
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (TAB === 'stats') render(); });
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
