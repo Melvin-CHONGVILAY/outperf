@@ -1,4 +1,4 @@
-const CACHE = 'outperf-c2233bdf';
+const CACHE = 'outperf-3de51775';
 const ASSETS = ['./', './index.html', './config.js', './vendor/supabase.js', './manifest.webmanifest', './icons/apple-touch-icon.png', './icons/icon-192.png', './icons/icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));

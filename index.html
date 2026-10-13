@@ -464,8 +464,6 @@ const r1 = n => Math.round(n * 100) / 100;
 const CAP = window.Capacitor;
 const NATIVE = !!(CAP && typeof CAP.isNativePlatform === 'function' && CAP.isNativePlatform());
 const plug = n => (NATIVE && CAP.Plugins && CAP.Plugins[n]) || null;
-// The splash stays up until the first render (launchAutoHide is off); this is the safety net.
-if (NATIVE) setTimeout(() => { const sp = plug('SplashScreen'); if (sp) sp.hide().catch(() => { }); }, 4000);
 const CFG = Object.assign({ supabaseUrl: '', supabaseAnonKey: '', privacyUrl: '', termsUrl: '', supportUrl: '', contactEmail: '' }, window.OUTPERF_CONFIG || {});
 // Monetisation hook. Version 1 is entirely free; a later version gates chosen features behind isPro()
 // and an Apple in-app purchase (App Store guideline 3.1.1).
@@ -2369,7 +2367,20 @@ function applyTheme() {
   const dark = th === 'dark' || (th === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
   const meta = $('meta[name="theme-color"]'); if (meta) meta.setAttribute('content', dark ? '#151A25' : '#FFFFFF');
   setStatusBar(dark);
+  fixTopInset();
   fixBottomBand();
+}
+// On iPad this iPhone app runs in a window whose controls sit in the top left corner, and iOS reports no
+// top inset there (an iPhone in portrait always reports one). Leave room so the titles stay clear of them.
+function fixTopInset() {
+  const root = document.documentElement;
+  if (!NATIVE || !document.body) return;
+  const p = document.createElement('div');
+  p.style.cssText = 'position:fixed;top:0;left:0;width:1px;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top,0px)';
+  document.body.appendChild(p);
+  const top = parseFloat(getComputedStyle(p).paddingTop) || 0;
+  p.remove();
+  if (top < 1) root.style.setProperty('--sat', '54px'); else root.style.removeProperty('--sat');
 }
 // iOS 26 home screen bug: with the old translucent status bar, the web view is cut short by the status bar
 // height and iOS paints the missing strip itself under the tab bar. That strip already holds the home
@@ -2385,7 +2396,7 @@ function fixBottomBand() {
 }
 let rsT = null;
 let lastW = innerWidth;
-addEventListener('resize', () => { fixBottomBand(); clearTimeout(rsT); rsT = setTimeout(() => { if (innerWidth !== lastW) { lastW = innerWidth; if (TAB === 'stats') { const y = app().scrollTop; render(); app().scrollTop = y; } } }, 150); });
+addEventListener('resize', () => { fixTopInset(); fixBottomBand(); clearTimeout(rsT); rsT = setTimeout(() => { if (innerWidth !== lastW) { lastW = innerWidth; if (TAB === 'stats') { const y = app().scrollTop; render(); app().scrollTop = y; } } }, 150); });
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (TAB === 'stats') render(); });
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') { if (NATIVE) scheduleEveningNow(); if (session) { clearTimeout(pushT); push(); } return; }
