@@ -19,7 +19,7 @@ Apple exige un moyen de te contacter. Crée une adresse dédiée (par exemple un
 
 ## Étape 2. Compte utilisateur (plus tard, version 1.1)
 
-La version 1.0 n'a pas de compte : tout reste sur l'iPhone. Le système de compte (Supabase) est conservé dans le tag git `account-system-draft`. Ne le réintègre que s'il est **visible et utilisable** dans l'app au moment de la soumission, avec un compte de démo pour Apple et des pages d'aide et de confidentialité mises à jour : du code présent mais désactivé a valu un refus 5.6 (« fonctions cachées ») au build 1.
+La version 1.0 n'a pas de compte : tout reste sur l'iPhone. Le système de compte (Supabase) est conservé dans la branche git `account-system-draft`. Ne le réintègre que s'il est **visible et utilisable** dans l'app au moment de la soumission, avec un compte de démo pour Apple et des pages d'aide et de confidentialité mises à jour : du code présent mais désactivé a valu un refus 5.6 (« fonctions cachées ») au build 1.
 
 ## Étape 3. Apple, une fois ton compte développeur validé (15 min)
 
