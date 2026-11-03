@@ -7,3 +7,4 @@ app/ios/App/build/
 app/ios/DerivedData/
 .DS_Store
 app/store/screenshots/raw/
+app/test/build/

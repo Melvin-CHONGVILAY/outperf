@@ -81,14 +81,40 @@ Quand le compte sera activé (version suivante, `config.js` rempli), il faudra d
 
 ## Informations pour la revue d'Apple (App Review)
 
-Champ « Notes » (en anglais, c'est plus rapide pour les reviewers) :
+Coche « Connexion requise » : **Non**. URL marketing : **laisser vide** (le site public est la version web, différente de l'app iPhone).
+
+Champ « Notes » :
 
 ```
-Outperf is a work time tracker. The app works entirely offline without any account: categories, timers and statistics are stored on the device only. No login is required.
+Outperf is a work time tracker. Everything in the app is visible from its five tabs and works offline. There is no account, no login, no server, no remote configuration, no feature flag, no web content loaded, no in-app purchase, no ads and no analytics. The app behaves the same for every user, country, date and device.
 
-To see the statistics filled in quickly: on first launch, tap "Commencer", then "Explorer d'abord avec des données d'exemple" to load sample data.
+Fastest way to see every screen filled: on first launch tap "Commencer", then "Explorer d'abord avec des données d'exemple" (sample data). "Repartir de zéro" removes it.
 
-Notifications are local only: end of a timer round, and an optional evening reminder the user enables in Settings. No ads, no tracking, no third-party analytics, no data collection.
+Complete feature list:
+1. Onboarding: pick categories and a daily goal, optional evening reminder (local notification).
+2. Aujourd'hui (Today): daily total, grade S to D, comparison with yesterday, last week and last month, streak, add time by hand (+) or start the stopwatch (play button) for a category.
+3. Chrono: stopwatch or round timer (25, 50 or 90 min) with a local notification when a round ends, keep screen awake and sound switches.
+4. Stats: day, week and month views with arrows and swipe to go back in time, month race, regularity calendar, weekday averages, last 12 months, per category table.
+5. Journal: history by day, edit or delete a session, "Ajouter" to add a past session.
+6. Réglages (Settings): daily goal, end of day hour, categories (add, rename, colour, archive, reorder), round durations, grade thresholds, evening reminder time, theme, data tools (backup file through the share sheet, restore, CSV export, import a table pasted from Notes or Excel, sample data, erase everything), links to the privacy policy, terms and support pages.
 ```
 
-Coche « Connexion requise » : **Non**.
+## Réponse à envoyer à Apple (App Review, Messages) après le refus 5.6 du build 1
+
+```
+Hello,
+
+Thank you for the review. We found what could look hidden and removed it.
+
+The first build contained the source code of an optional account and sync module that we had not finished. It was switched off (no server configured), so it never appeared in the app, but its code was still inside the binary, and our support, privacy and terms pages described that account and a future paid version. Reviewers could therefore read about features they could not find. This was a mistake on our side, not an attempt to hide anything.
+
+In build 1.0.0 (2):
+- the account and sync module has been removed entirely from the binary, along with an internal test hook;
+- the support, privacy and terms pages now describe exactly what the app does (everything stays on the device, no account, no data collected);
+- the review notes list every feature and how to reach it.
+
+The app has no server, no remote configuration and no feature flags: what you see in review is exactly what every user gets.
+
+Best regards,
+Melvin Chongvilay
+```

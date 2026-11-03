@@ -1,6 +1,6 @@
 import asyncio, subprocess, sys, time, datetime as dt, json
 from playwright.async_api import async_playwright
-srv = subprocess.Popen([sys.executable,'-m','http.server','8766','--bind','127.0.0.1'], cwd='/home/claude/outperf-gh', stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); time.sleep(0.6)
+srv = subprocess.Popen([sys.executable,'-m','http.server','8766','--bind','127.0.0.1'], cwd='/home/claude/outperf-gh/app/test/build/web', stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); time.sleep(0.6)
 async def main():
     async with async_playwright() as p:
         b = await p.chromium.launch(); ctx = await b.new_context(timezone_id='Europe/Paris'); page = await ctx.new_page()

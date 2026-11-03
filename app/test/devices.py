@@ -1,6 +1,6 @@
 import asyncio, subprocess, sys, time, datetime as dt, json
 from playwright.async_api import async_playwright
-srv = subprocess.Popen([sys.executable,'-m','http.server','8770','--bind','127.0.0.1'], cwd='/home/claude/outperf-gh', stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); time.sleep(0.6)
+srv = subprocess.Popen([sys.executable,'-m','http.server','8770','--bind','127.0.0.1'], cwd='/home/claude/outperf-gh/app/test/build/web', stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); time.sleep(0.6)
 SH='/home/claude/outperf-gh/app/test/shots/dev_'
 DEVICES = [('se', 375, 667, 20, 0), ('mini', 375, 812, 50, 34), ('i14', 390, 844, 47, 34), ('i16', 393, 852, 59, 34), ('i16pro', 402, 874, 62, 34), ('plus', 428, 926, 47, 34), ('promax', 440, 956, 62, 34)]
 TABS = ['today','chrono','stats','journal','settings']

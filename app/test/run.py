@@ -1,7 +1,7 @@
 import asyncio, json, subprocess, time, sys, datetime as dt
 from playwright.async_api import async_playwright
 PORT=8765
-srv = subprocess.Popen([sys.executable,'-m','http.server',str(PORT),'--bind','127.0.0.1'], cwd='/home/claude/outperf-gh', stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+srv = subprocess.Popen([sys.executable,'-m','http.server',str(PORT),'--bind','127.0.0.1'], cwd='/home/claude/outperf-gh/app/test/build/web', stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 time.sleep(0.8)
 URL=f'http://localhost:{PORT}/'
 SH='/home/claude/outperf-gh/app/test/shots/'

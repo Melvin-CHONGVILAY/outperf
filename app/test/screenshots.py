@@ -2,7 +2,7 @@
 import asyncio, subprocess, sys, time, datetime as dt, base64, pathlib
 from playwright.async_api import async_playwright
 OUT = pathlib.Path('/home/claude/outperf-gh/app/store/screenshots'); RAW = OUT / 'raw'; RAW.mkdir(parents=True, exist_ok=True)
-srv = subprocess.Popen([sys.executable, '-m', 'http.server', '8772', '--bind', '127.0.0.1'], cwd='/home/claude/outperf-gh', stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); time.sleep(0.6)
+srv = subprocess.Popen([sys.executable, '-m', 'http.server', '8772', '--bind', '127.0.0.1'], cwd='/home/claude/outperf-gh/app/test/build/web', stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); time.sleep(0.6)
 SHOTS = [
   ('01-aujourdhui', 'Bats ton toi\nd\'hier.', 'Chaque jour comparé à la veille, en direct.'),
   ('02-chrono', 'Chaque heure\ncompte.', 'Chrono ou rounds, le temps va dans la bonne catégorie.'),

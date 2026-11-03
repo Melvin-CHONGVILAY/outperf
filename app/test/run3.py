@@ -1,6 +1,6 @@
 import asyncio, subprocess, sys, time, datetime as dt, json
 from playwright.async_api import async_playwright
-srv = subprocess.Popen([sys.executable,'-m','http.server','8768','--bind','127.0.0.1'], cwd='/home/claude/outperf-gh', stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); time.sleep(0.6)
+srv = subprocess.Popen([sys.executable,'-m','http.server','8768','--bind','127.0.0.1'], cwd='/home/claude/outperf-gh/app/test/build/web', stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); time.sleep(0.6)
 SH='/home/claude/outperf-gh/app/test/shots/'
 errors=[]
 SWIPE = '''(dx) => { const el = document.querySelector('.pcard'); const r = el.getBoundingClientRect(); const x = r.left + r.width/2, y = r.top + 200;
