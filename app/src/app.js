@@ -224,15 +224,27 @@ function defaults() {
     cats: [], entries: [], timer: null, tomb: { e: {}, c: {} }, mt: 0,
   };
 }
+const num = (v, d, lo, hi) => { const n = Number(v); return isFinite(n) ? clamp(n, lo, hi) : d; };
 function normalize(o) {
   const d = defaults();
   if (!o || typeof o !== 'object') return d;
-  const st = Object.assign(d, o);
-  st.settings = Object.assign(defaults().settings, o.settings || {});
-  st.cats = Array.isArray(o.cats) ? o.cats.filter(c => c && c.id && typeof c.name === 'string') : [];
-  st.entries = Array.isArray(o.entries) ? o.entries.filter(e => e && e.id && /^\d{4}-\d{2}-\d{2}$/.test(e.d) && isFinite(e.m)) : [];
+  const st = Object.assign(d, o), ds = defaults().settings;
+  const ss = st.settings = Object.assign(defaults().settings, o.settings && typeof o.settings === 'object' ? o.settings : {});
+  ss.goal = num(ss.goal, ds.goal, 0, 24 * 60);
+  ss.dayEnd = num(ss.dayEnd, 0, 0, 6);
+  ss.grades = Array.isArray(ss.grades) && ss.grades.length === 4 && ss.grades.every(x => isFinite(+x)) ? ss.grades.map(x => clamp(+x, 1, 300)) : ds.grades;
+  ss.presets = Array.isArray(ss.presets) && ss.presets.length === 3 && ss.presets.every(x => isFinite(+x)) ? ss.presets.map(x => clamp(+x, 5, 600)) : ds.presets;
+  if (!['auto', 'dark', 'light'].includes(ss.theme)) ss.theme = 'auto';
+  ss.remindAt = num(ss.remindAt, ds.remindAt, 0, 24 * 60 - 1);
+  ss.lastBackup = num(ss.lastBackup, 0, 0, 8.64e15);
+  const ids = new Set();
+  st.cats = (Array.isArray(o.cats) ? o.cats : []).filter(c => c && c.id && typeof c.name === 'string' && c.name.trim() && !ids.has(String(c.id)) && ids.add(String(c.id)))
+    .map((c, i) => Object.assign({}, c, { id: String(c.id), name: c.name.trim().slice(0, 40), color: Number.isInteger(+c.color) && +c.color >= 0 && +c.color <= 8 ? +c.color : i % 8, counts: c.counts !== false, wg: num(c.wg, 0, 0, 7 * 24 * 60), archived: !!c.archived }));
+  st.entries = (Array.isArray(o.entries) ? o.entries : []).filter(e => e && e.id && typeof e.d === 'string' && /^(20\d\d)-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(e.d) && isFinite(+e.m) && +e.m > 0)
+    .map(e => Object.assign({}, e, { id: String(e.id), c: String(e.c), m: clamp(+e.m, 0, 24 * 60) }));
   st.tomb = { e: Object.assign({}, o.tomb && o.tomb.e), c: Object.assign({}, o.tomb && o.tomb.c) };
-  if (st.timer && !Array.isArray(st.timer.segs)) st.timer = null;
+  const t = st.timer;
+  if (t && !(Array.isArray(t.segs) && t.segs.every(x => Array.isArray(x) && isFinite(x[0]) && isFinite(x[1])) && ['chrono', 'timer', 'break'].includes(t.mode))) st.timer = null;
   return st;
 }
 async function load() {
@@ -271,7 +283,7 @@ function save() {
   if (NATIVE) scheduleEvening();
 }
 // Replacing the whole state (restore, example data, reset) must not tombstone the old items.
-function replaceState(next) { S = next; lastIds = null; trackDeletes(); persist(); }
+function replaceState(next) { if (S && S.timer && !next.timer) { wakeOff(); notifCancel([NOTIF_ROUND]); } S = next; lastIds = null; trackDeletes(); persist(); }
 const activeCats = () => S.cats.filter(c => !c.archived);
 const catById = id => S.cats.find(c => c.id === id);
 const catName = id => (catById(id) || { name: 'Catégorie supprimée' }).name;
@@ -536,35 +548,56 @@ function durInput(minutes) {
 }
 function gradeBadge(g, big) { return h('div', { class: `grade g-${g}${big ? ' big' : ''}`, 'aria-label': `Note ${g}` }, g); }
 
-/* tooltip */
-let tipEl = null, tipOwner = null;
-function showTip(x, y, title, rows, owner) {
+/* tooltip: a bubble above the touched bar, kept inside the visible area (below the status bar, above the tab bar) */
+let tipEl = null, tipOwner = null, tipAt = null, tipRaf = 0;
+function tipBand() {
+  const a = $('#app'), r = a ? a.getBoundingClientRect() : null;
+  return r && r.height > 0 ? { top: Math.max(0, r.top), bottom: Math.min(innerHeight, r.bottom) } : { top: 0, bottom: innerHeight };
+}
+function placeTip() {
+  tipRaf = 0;
+  if (!tipEl || !tipAt) return;
+  const { hit, mark } = tipAt;
+  if (!hit.isConnected) { hideTip(); return; }
+  const r = hit.getBoundingClientRect(), band = tipBand();
+  if (r.bottom < band.top + 4 || r.top > band.bottom - 4) { hideTip(); return; }
+  const mr = mark && mark.isConnected && mark.getBoundingClientRect ? mark.getBoundingClientRect() : null;
+  const onMark = !!(mr && (mr.width > 0 || mr.height > 0));
+  const x = r.left + r.width / 2, ay = onMark ? mr.top : r.top + Math.min(r.height / 2, 40);
+  const w = tipEl.offsetWidth, ht = tipEl.offsetHeight;
+  let top = ay - ht - 10;
+  if (top < band.top + 6) top = (onMark ? mr.top + Math.min(mr.height, 24) : ay) + 12;
+  top = clamp(top, band.top + 6, Math.max(band.top + 6, band.bottom - ht - 6));
+  tipEl.style.left = clamp(x - w / 2, 8, Math.max(8, innerWidth - w - 8)) + 'px';
+  tipEl.style.top = top + 'px';
+}
+function showTip(title, rows, hit, mark) {
   if (!tipEl) { tipEl = h('div', { class: 'tip', role: 'tooltip' }); document.body.append(tipEl); }
   tipEl.replaceChildren(h('div', { class: 'tt' }, title), ...rows.map(r => h('div', { class: 'tr' }, h('span', null, r.color ? h('i', { style: `background:${r.color}` }) : null, r.label), h('b', null, r.value))));
-  tipEl.classList.add('in'); tipOwner = owner;
-  const w = tipEl.offsetWidth, ht = tipEl.offsetHeight, vw = innerWidth;
-  let left = clamp(x - w / 2, 8, vw - w - 8), top = y - ht - 14;
-  if (top < 8 + (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sat')) || 0)) top = y + 18;
-  tipEl.style.left = left + 'px'; tipEl.style.top = top + 'px';
+  const owner = mark || hit;
+  if (tipOwner && tipOwner !== owner && tipOwner.classList) tipOwner.classList.remove('hl');
+  tipOwner = owner; if (owner.classList) owner.classList.add('hl');
+  tipAt = { hit, mark };
+  tipEl.classList.add('in');
+  placeTip();
 }
-function hideTip() { if (tipEl) tipEl.classList.remove('in'); if (tipOwner && tipOwner.classList) tipOwner.classList.remove('hl'); tipOwner = null; }
+function hideTip() { if (tipEl) tipEl.classList.remove('in'); if (tipOwner && tipOwner.classList) tipOwner.classList.remove('hl'); tipOwner = null; tipAt = null; }
 function bindTip(hit, mark, getTip) {
-  const show = ev => {
-    if (tipOwner && tipOwner !== mark && tipOwner.classList) tipOwner.classList.remove('hl');
-    const r = hit.getBoundingClientRect();
-    const tp = getTip();
-    if (mark && mark.classList) mark.classList.add('hl');
-    showTip(r.left + r.width / 2, r.top + (ev && ev.type === 'focus' ? 0 : Math.min(r.height / 2, 40)), tp[0], tp[1], mark || hit);
-  };
-  hit.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') show(e); });
+  let touched = 0;
+  const show = () => { const tp = getTip(); showTip(tp[0], tp[1], hit, mark); };
+  hit.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse') touched = Date.now(); });
+  hit.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') show(); });
   hit.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') hideTip(); });
-  hit.addEventListener('click', e => { e.stopPropagation(); show(e); });
-  hit.addEventListener('focus', show); hit.addEventListener('blur', hideTip);
+  hit.addEventListener('click', e => { e.stopPropagation(); show(); });
+  // keyboard only: a tap can also focus the bar on iOS, the click already handles it
+  hit.addEventListener('focus', () => { if (Date.now() - touched > 800) show(); });
+  hit.addEventListener('blur', () => { if (Date.now() - touched > 800 && tipAt && tipAt.hit === hit) hideTip(); });
   hit.setAttribute('tabindex', '0');
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && sheetStack.length) sheetStack[sheetStack.length - 1](); });
 document.addEventListener('pointerdown', e => { if (!e.target.closest || !e.target.closest('.hit')) hideTip(); }, true);
-document.addEventListener('scroll', hideTip, { passive: true, capture: true });
+document.addEventListener('scroll', () => { if (tipAt && !tipRaf) tipRaf = requestAnimationFrame(placeTip); }, { passive: true, capture: true });
+window.addEventListener('resize', hideTip);
 
 /* ================= charts ================= */
 function niceScale(maxV) {
@@ -1296,7 +1329,7 @@ function viewJournal() {
     if (mk !== lastMonth) { const d = fromKey(k); v.append(h('p', { class: 'month-h' }, `${cap(MON_L[d.getMonth()])} ${d.getFullYear()}`)); lastMonth = mk; }
     const dd = dayData(k);
     const g = gradeOf(goal ? dd.work / goal : 0);
-    const stack = h('div', { class: 'stack' }, S.cats.filter(c => dd.cats[c.id] > 0).map(c => h('i', { style: `flex:${dd.cats[c.id]};background:var(--c${c.color})` })));
+    const stack = h('div', { class: 'dstack' }, S.cats.filter(c => dd.cats[c.id] > 0).map(c => h('i', { style: `flex:${dd.cats[c.id]};background:var(--c${c.color})` })));
     const open = openDays.has(k);
     const body = h('div', { class: 'day-body' });
     if (open) S.entries.filter(e => e.d === k).sort((a, b) => (a.s || a.t) - (b.s || b.t)).forEach(e => body.append(entryRow(e)));
@@ -1356,7 +1389,7 @@ function viewSettings() {
   v.append(h('section', { class: 'sec' }, h('div', { class: 'sec-h' }, h('h2', null, 'Catégories'), h('p', null, 'Touche pour modifier')), list,
     arch.length ? h('div', { class: 'list' }, arch.map(c => h('button', { class: 'row', onclick: () => editCat(c) }, h('span', { class: 'dot', style: `background:var(--c${c.color});opacity:.5` }), h('span', { class: 'row-main' }, h('span', { class: 'row-t muted' }, c.name), h('span', { class: 'row-s' }, 'Archivée, historique conservé'))))) : null));
   // timer presets
-  const presIn = st.presets.map((p, i) => { const inp = h('input', { class: 'input', type: 'number', inputmode: 'numeric', min: 5, max: 600, value: p, style: 'width:76px;text-align:center', 'aria-label': `Durée de round ${i + 1} en minutes` }); inp.addEventListener('change', () => { const x = clamp(parseInt(inp.value, 10) || 0, 5, 600); st.presets[i] = x; inp.value = x; save(); }); return inp; });
+  const presIn = st.presets.map((p, i) => { const inp = h('input', { class: 'input', type: 'number', inputmode: 'numeric', min: 5, max: 600, value: p, style: 'width:clamp(50px,18vw,76px);text-align:center', 'aria-label': `Durée de round ${i + 1} en minutes` }); inp.addEventListener('change', () => { const x = clamp(parseInt(inp.value, 10) || 0, 5, 600); st.presets[i] = x; inp.value = x; save(); }); return inp; });
   v.append(h('section', { class: 'sec' }, h('div', { class: 'sec-h' }, h('h2', null, 'Minuteur'), h('p', null, 'durées proposées, en minutes')),
     h('div', { class: 'list opts' }, h('div', { class: 'opt' }, h('div', { class: 'opt-t' }, 'Rounds'), h('div', { class: 'btns', style: 'gap:8px' }, presIn)))));
   // grades
@@ -1450,50 +1483,111 @@ function editCat(c) {
       } }, isNew ? 'Créer la catégorie' : 'Enregistrer'),
       !isNew ? h('div', { class: 'btns' },
         h('button', { class: 'btn', onclick: () => { c.archived = !c.archived; c.u = Date.now(); save(); close(); render(); toast(c.archived ? 'Catégorie archivée' : 'Catégorie réactivée'); } }, c.archived ? 'Réactiver' : 'Archiver'),
-        h('button', { class: 'btn danger', onclick: () => { close(); confirmSheet('Supprimer la catégorie ?', n ? `Ses ${n} session${n > 1 ? 's' : ''} seront supprimées aussi. Pour garder l'historique, archive la plutôt.` : 'Elle n\'a aucune session enregistrée.', 'Supprimer', () => { S.cats = S.cats.filter(x => x.id !== c.id); S.entries = S.entries.filter(e => e.c !== c.id); if (S.timer && S.timer.c === c.id) S.timer = null; save(); render(); toast('Catégorie supprimée'); }, true); } }, 'Supprimer')) : null,
+        h('button', { class: 'btn danger', onclick: () => { close(); confirmSheet('Supprimer la catégorie ?', n ? `Ses ${n} session${n > 1 ? 's' : ''} seront supprimées aussi. Pour garder l'historique, archive la plutôt.` : 'Elle n\'a aucune session enregistrée.', 'Supprimer', () => { S.cats = S.cats.filter(x => x.id !== c.id); S.entries = S.entries.filter(e => e.c !== c.id); if (S.timer && S.timer.c === c.id) { S.timer = null; wakeOff(); notifCancel([NOTIF_ROUND]); } save(); render(); toast('Catégorie supprimée'); }, true); } }, 'Supprimer')) : null,
       !isNew ? h('p', { class: 'note' }, 'Archiver cache la catégorie des boutons mais garde ses heures dans les stats.') : null,
     ];
   });
 }
 
 /* ---------- import / export */
+const IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const STANDALONE = navigator.standalone === true || !!(window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+let sharing = false;
 async function shareText(name, mime, text) {
+  if (sharing) return false;
+  sharing = true;
+  try { return await shareNow(name, mime, text); } finally { sharing = false; }
+}
+async function shareNow(name, mime, text) {
   const FS = plug('Filesystem'), SH = plug('Share');
   if (FS && SH) {
-    try {
-      const w = await FS.writeFile({ path: name, data: text, directory: 'CACHE', encoding: 'utf8' });
-      await SH.share({ title: name, files: [w.uri] });
-      return true;
-    } catch (e) { if (/cancel/i.test(String(e && e.message))) return false; toast('Export impossible. Réessaie.'); return false; }
+    let uri;
+    try { uri = (await FS.writeFile({ path: name, data: text, directory: 'CACHE', encoding: 'utf8', recursive: true })).uri; }
+    catch (e) { console.error(e); toast('Impossible de préparer le fichier. Réessaie.'); return false; }
+    try { await SH.share({ title: name, files: [uri] }); return true; }
+    catch (e) {
+      if (/cancel/i.test(String(e && (e.message || e.errorMessage || e)))) return false;
+      console.error(e); toast('Le partage n\'a pas abouti. Réessaie.'); return false;
+    }
   }
   const blob = new Blob([text], { type: mime });
-  try {
-    const file = new File([blob], name, { type: mime });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); return true; }
-  } catch (e) { if (e && e.name === 'AbortError') return false; }
+  let file = null;
+  try { file = new File([blob], name, { type: mime }); } catch (e) { }
+  if (file && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: name }); return true; }
+    catch (e) { if (e && e.name === 'AbortError') return false; }
+  }
+  // An installed web app on iPhone has no download manager: a file link would replace the app with the raw file.
+  if (IOS && STANDALONE) return copySheet(name, text);
   try {
     const a = h('a', { href: URL.createObjectURL(blob), download: name });
     document.body.append(a); a.click();
-    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
     return true;
-  } catch (e) { toast('Export impossible ici'); return false; }
+  } catch (e) { return copySheet(name, text); }
+}
+function copySheet(name, text) {
+  return new Promise(res => {
+    let ok = false;
+    openSheet('Copier le contenu', close => {
+      const ta = h('textarea', { class: 'input', readonly: true, rows: 6, style: 'font-size:12px' }); ta.value = text;
+      return [
+        h('p', { class: 'muted small' }, /\.json$/.test(name) ? 'Le partage de fichier n\'est pas disponible ici. Copie ta sauvegarde et colle la dans une note. Pour la restaurer : Réglages, Importer depuis Notes ou Excel, puis colle le texte.' : 'Le partage de fichier n\'est pas disponible ici. Copie le tableau et colle le dans Excel ou Numbers.'),
+        ta,
+        h('button', { class: 'btn primary wide', onclick: async () => {
+          try { await navigator.clipboard.writeText(text); ok = true; }
+          catch (e) { ta.focus(); ta.select(); try { ok = document.execCommand('copy'); } catch (e2) { ok = false; } }
+          if (ok) { close(); toast('Copié'); } else toast('Sélectionne le texte et copie le');
+        } }, 'Copier'),
+      ];
+    }, { onClose: () => res(ok) });
+  });
 }
 async function exportJSON() {
   const ok = await shareText(`outperf-sauvegarde-${today()}.json`, 'application/json', JSON.stringify({ app: 'outperf', v: 1, exported: new Date().toISOString(), data: docOf(S) }));
   if (ok) { S.settings.lastBackup = Date.now(); save(); render(); toast('Sauvegarde créée'); }
 }
+const readText = f => typeof f.text === 'function' ? f.text() : new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result || '')); r.onerror = () => rej(r.error); r.readAsText(f); });
 function pickFile(accept, cb) {
-  const inp = h('input', { type: 'file', accept, style: 'display:none' });
-  inp.addEventListener('change', () => { const f = inp.files && inp.files[0]; if (f) f.text().then(cb); inp.remove(); });
-  document.body.append(inp); inp.click();
+  document.querySelectorAll('input.picker').forEach(x => x.remove());
+  const inp = h('input', { type: 'file', accept, class: 'picker', tabindex: '-1', 'aria-hidden': 'true', style: 'position:fixed;left:-200px;top:0;width:1px;height:1px;opacity:0' });
+  const done = () => setTimeout(() => inp.remove(), 0);
+  inp.addEventListener('change', () => {
+    const f = inp.files && inp.files[0];
+    done();
+    if (!f) return;
+    if (f.size > 20 * 1024 * 1024) { toast('Fichier trop lourd'); return; }
+    readText(f).then(cb, () => toast('Impossible de lire ce fichier. S\'il est dans iCloud Drive, ouvre le une fois dans Fichiers puis réessaie.'));
+  });
+  inp.addEventListener('cancel', done);
+  document.body.append(inp);
+  inp.click();
+}
+function parseBackup(txt) {
+  let o;
+  try { o = JSON.parse(String(txt || '').replace(/^﻿/, '').trim()); } catch (e) { return null; }
+  const data = o && o.data && typeof o.data === 'object' ? o.data : o;
+  return data && typeof data === 'object' && Array.isArray(data.cats) && Array.isArray(data.entries) ? data : null;
+}
+const looksLikeBackup = txt => /^\s*﻿?\s*\{/.test(String(txt || ''));
+function restoreFrom(txt, after) {
+  const data = parseBackup(txt);
+  if (!data) { toast('Ce fichier n\'est pas une sauvegarde Outperf'); return; }
+  const st = normalize(data);
+  if (!st.cats.length && !st.entries.length) { toast('Cette sauvegarde est vide'); return; }
+  const ks = [...new Set(st.entries.map(e => e.d))].sort();
+  const span = ks.length ? `, du ${fmtDate(ks[0])} au ${fmtDate(ks[ks.length - 1])},` : '';
+  const nc = st.cats.length, ne = st.entries.length;
+  confirmSheet('Restaurer cette sauvegarde ?', `${nc} catégorie${nc > 1 ? 's' : ''} et ${ne} session${ne > 1 ? 's' : ''}${span} remplaceront tes données actuelles.`, 'Restaurer', () => {
+    const keep = S.timer && (S.timer.mode === 'break' || st.cats.some(c => c.id === S.timer.c)) ? S.timer : null;
+    replaceState(Object.assign(st, { timer: keep }));
+    S.settings.onboarded = true; S.demo = false;
+    save(); applyTheme(); stAnchor = null; render(); toast('Sauvegarde restaurée');
+    if (after) after();
+  });
 }
 function importJSON() {
-  pickFile('.json,application/json', txt => {
-    let o; try { o = JSON.parse(txt); } catch (e) { toast('Fichier illisible'); return; }
-    const data = o && o.data ? o.data : o;
-    if (!data || !Array.isArray(data.cats) || !Array.isArray(data.entries)) { toast('Ce fichier n\'est pas une sauvegarde Outperf'); return; }
-    confirmSheet('Restaurer cette sauvegarde ?', `${data.cats.length} catégories et ${data.entries.length} sessions remplaceront tes données actuelles.`, 'Restaurer', () => { const keep = S.timer; replaceState(Object.assign(normalize(data), { timer: keep })); S.settings.onboarded = true; S.demo = false; save(); applyTheme(); render(); toast('Sauvegarde restaurée'); });
-  });
+  pickFile('.json,application/json,.txt,text/plain', txt => restoreFrom(txt));
 }
 function exportCSV() {
   const keys = [...new Set(S.entries.map(e => e.d))].sort();
@@ -1542,17 +1636,31 @@ function parseDate(str, refYear) {
   }
   return null;
 }
+function splitRow(l, sep) {
+  if (sep === '|' || !l.includes('"')) return l.split(sep).map(x => x.trim());
+  const out = []; let cur = '', q = false;
+  for (let i = 0; i < l.length; i++) {
+    const ch = l[i];
+    if (q) { if (ch === '"') { if (l[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += ch; }
+    else if (ch === '"' && !cur.trim()) { q = true; cur = ''; }
+    else if (ch === sep) { out.push(cur.trim()); cur = ''; }
+    else cur += ch;
+  }
+  out.push(cur.trim());
+  return out;
+}
 const SKIP_COLS = /^(jour|day|total.*|objectif|obj\.?|%.*|note|commentaire|comment|moy.*|streak|série|delta|Δ.*)$/i;
 function parseTable(text) {
-  const lines = String(text || '').replace(/\r/g, '').split('\n').map(l => l.trim()).filter(l => l && !/^\|?\s*:?-{2,}/.test(l));
+  const lines = String(text || '').replace(/^\uFEFF/, '').replace(/\r/g, '').split('\n').map(l => l.trim()).filter(l => l && !/^\|?\s*:?-{2,}/.test(l));
   if (!lines.length) return null;
   const sep = lines.some(l => l.includes('\t')) ? '\t' : lines.some(l => l.includes('|')) ? '|' : lines.some(l => l.includes(';')) ? ';' : ',';
-  const rows = lines.map(l => { let c = l.split(sep).map(x => x.trim()); if (sep === '|') { if (c[0] === '') c.shift(); if (c[c.length - 1] === '') c.pop(); } return c; });
+  const rows = lines.map(l => { let c = splitRow(l, sep); if (sep === '|') { if (c[0] === '') c.shift(); if (c[c.length - 1] === '') c.pop(); } return c; });
   const ry = fromKey(today()).getFullYear();
-  let hi = rows.findIndex(r => !parseDate(r[0], ry));
   const firstData = rows.findIndex(r => parseDate(r[0], ry));
   if (firstData < 0) return { error: 'Aucune date reconnue en première colonne (ex. 05/10 ou 05/10/2026).' };
-  const header = hi >= 0 && hi < firstData ? rows[hi] : null;
+  // header: the closest line above the first date (a title line may sit above it)
+  const above = rows.slice(0, firstData).filter(r => r.length > 1);
+  const header = above.length ? above[above.length - 1] : firstData > 0 ? rows[firstData - 1] : null;
   const data = rows.slice(firstData).filter(r => parseDate(r[0], ry));
   let ncol = Math.max(...data.map(r => r.length));
   if (ncol === 1) {
@@ -1583,11 +1691,12 @@ function importTable() {
   openSheet('Importer un tableau', close => {
     const ta = h('textarea', { class: 'input', placeholder: 'Date	Révision	Projets	Sport\n05/10	2h30	1h	45min\n06/10	3h	1,5	1h' });
     const prev = h('div', { class: 'note' });
-    const repl = toggle(true, () => { }, 'Remplacer les jours importés');
+    const repl = toggle(true, () => { }, 'Remplacer les heures déjà saisies');
     let parsed = null;
     const upd = () => {
+      if (!ta.value.trim()) { parsed = null; prev.textContent = ''; return; }
+      if (looksLikeBackup(ta.value)) { parsed = null; const ok = !!parseBackup(ta.value); prev.style.color = ok ? '' : 'var(--bad-ink)'; prev.textContent = ok ? 'Sauvegarde Outperf reconnue : Importer la restaure.' : 'Texte de sauvegarde incomplet. Copie la en entier.'; return; }
       parsed = parseTable(ta.value);
-      if (!ta.value.trim()) { prev.textContent = ''; return; }
       if (!parsed || parsed.error) { prev.textContent = parsed ? parsed.error : ''; prev.style.color = 'var(--bad-ink)'; return; }
       prev.style.color = '';
       const tot = parsed.rows.reduce((s, r) => s + r.m, 0);
@@ -1598,15 +1707,17 @@ function importTable() {
     return [
       h('p', { class: 'muted small' }, 'Dans Notes, copie ton tableau puis colle ici. Première colonne : la date. Les autres : une catégorie par colonne, avec son nom en en-tête. Durées acceptées : 2h30, 1h, 45 min, 1,5 ou 1:30.'),
       ta, prev,
-      h('div', { class: 'list opts' }, h('div', { class: 'opt' }, h('div', null, h('div', { class: 'opt-t' }, 'Remplacer ces jours'), h('div', { class: 'opt-s' }, 'Efface ce qui existe déjà sur les dates importées')), repl)),
-      h('div', { class: 'btns' }, h('button', { class: 'btn', onclick: () => pickFile('.csv,.tsv,.txt,text/csv,text/plain', t => { ta.value = t; upd(); }) }, 'Choisir un fichier'),
+      h('div', { class: 'list opts' }, h('div', { class: 'opt' }, h('div', null, h('div', { class: 'opt-t' }, 'Remplacer les heures déjà saisies'), h('div', { class: 'opt-s' }, 'Pour ces catégories aux mêmes dates, évite les doublons')), repl)),
+      h('div', { class: 'btns' }, h('button', { class: 'btn', onclick: () => pickFile('.csv,.tsv,.txt,.json,text/csv,text/plain,text/tab-separated-values,application/json', t => { ta.value = t; upd(); }) }, 'Choisir un fichier'),
         h('button', { class: 'btn primary', onclick: () => {
           upd();
-          if (!parsed || parsed.error) { toast('Rien à importer'); return; }
+          if (looksLikeBackup(ta.value)) { if (parseBackup(ta.value)) restoreFrom(ta.value, close); else toast('Texte de sauvegarde incomplet'); return; }
+          if (!parsed || parsed.error) { toast(parsed && parsed.error ? parsed.error : 'Rien à importer'); return; }
           const map = {};
           parsed.cols.forEach(c => { let cat = S.cats.find(x => x.name.toLowerCase() === c.name.toLowerCase()); if (!cat) { const sg = SUGGESTIONS.find(s => s[0].toLowerCase() === c.name.toLowerCase()); cat = makeCat(c.name, sg ? sg[1] : !/sport|muscu|gym|boxe|mma|course|run/i.test(c.name), 0); S.cats.push(cat); } map[c.name] = cat.id; });
           const days = new Set(parsed.rows.map(r => r.d));
-          if (repl.querySelector('input').checked) S.entries = S.entries.filter(e => !days.has(e.d));
+          const ids = new Set(Object.values(map));
+          if (repl.querySelector('input').checked) S.entries = S.entries.filter(e => !(days.has(e.d) && ids.has(e.c)));
           parsed.rows.forEach(r => S.entries.push({ id: uid(), d: r.d, c: map[r.name], m: r.m, src: 'import', t: Date.now() }));
           S.settings.onboarded = true;
           save(); close(); render(); toast(`${parsed.rows.length} entrées importées sur ${days.size} jours`);
